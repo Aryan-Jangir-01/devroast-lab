@@ -84,7 +84,7 @@ Open `http://localhost:3000`.
 
 ## Live Submission Links
 
-- **Live App:** `<ADD_VERCEL_URL_AFTER_DEPLOY>`
+- **Live App:** https://devroast-lab.vercel.app
 - **Demo Video (2–3 min):** `<ADD_YOUTUBE_OR_LOOM_URL_AFTER_RECORDING>`
 
 ---
