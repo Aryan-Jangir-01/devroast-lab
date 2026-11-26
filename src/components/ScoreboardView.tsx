@@ -14,7 +14,6 @@ import {
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
-  Sparkles,
   Trophy,
 } from "lucide-react";
 import type {
@@ -172,8 +171,8 @@ export function ScoreboardView() {
 
   if (!data) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-slate-300">
-        Loading Live Experiment Scoreboard...
+      <div className="min-h-screen flex items-center justify-center font-mono text-xs text-zinc-400">
+        Loading Experiment Scoreboard...
       </div>
     );
   }
@@ -184,32 +183,35 @@ export function ScoreboardView() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-slate-800/80 bg-[#07080d]/90 backdrop-blur-md">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+      <header className="border-b border-zinc-800 bg-[#09090b]/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 px-3 py-2 text-xs text-slate-200"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#111115] hover:border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-300 hover:text-zinc-50"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Arena
+              Arena
             </Link>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-base font-bold text-slate-50 flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-emerald-400" />
-                  Toggle Wars Live Scoreboard
+                <h1 className="text-sm sm:text-base font-bold tracking-tight text-zinc-50 flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-[#f5c518]" />
+                  Experiment Scoreboard
                 </h1>
-                <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-slate-400">
+                <span className="inline-flex items-center gap-1.5 rounded border border-zinc-800 bg-[#111115] px-2 py-0.5 font-mono text-[10px] text-zinc-400">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      connection.mode === "live_flagsmith"
+                        ? "bg-[#f5c518]"
+                        : "bg-zinc-500"
+                    }`}
+                  />
                   {connection.mode === "live_flagsmith"
                     ? "Live Flagsmith Edge"
-                    : "Local Experiment Mode"}
+                    : "Local Mode"}
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                Flagsmith Experimentation · Primary Metric:{" "}
-                <code className="text-orange-300">{scoreboard.primaryMetric}</code>
-              </p>
             </div>
           </div>
 
@@ -217,36 +219,36 @@ export function ScoreboardView() {
             <button
               type="button"
               onClick={() => handleExport("csv")}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 px-2.5 py-2 text-xs text-slate-300 cursor-pointer"
+              className="inline-flex items-center gap-1 rounded-md border border-zinc-800 bg-[#111115] hover:border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-300 cursor-pointer"
             >
-              <Download className="h-3.5 w-3.5 text-cyan-400" />
+              <Download className="h-3.5 w-3.5 text-zinc-400" />
               CSV
             </button>
             <button
               type="button"
               onClick={() => handleExport("json")}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 px-2.5 py-2 text-xs text-slate-300 cursor-pointer"
+              className="inline-flex items-center gap-1 rounded-md border border-zinc-800 bg-[#111115] hover:border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-300 cursor-pointer"
             >
-              <Download className="h-3.5 w-3.5 text-orange-400" />
+              <Download className="h-3.5 w-3.5 text-zinc-400" />
               JSON
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={handleSimulate}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 px-3 py-2 text-xs font-medium text-emerald-200 cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#f5c518] hover:bg-[#ffd43b] px-3 py-1.5 text-xs font-semibold text-black cursor-pointer disabled:opacity-50"
             >
               <Play className="h-3.5 w-3.5" />
-              Simulate 30 User Sessions
+              Simulate 30 Sessions
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={handleResetZero}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3 py-2 text-xs text-slate-300 cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#111115] hover:border-red-500/40 hover:text-red-300 px-2.5 py-1.5 text-xs text-zinc-400 cursor-pointer disabled:opacity-50"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Reset Counts
+              Reset
             </button>
           </div>
         </div>
@@ -254,91 +256,97 @@ export function ScoreboardView() {
 
       <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 space-y-6">
         {!store.scoreboardEnabled && (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-amber-200 flex items-center justify-between gap-3">
+          <div className="rounded-lg border border-[#f5c518]/40 bg-[#f5c518]/10 px-4 py-3 text-xs text-[#fde047] flex items-center justify-between gap-3">
             <span>
-              <code>live_scoreboard_enabled</code> is currently toggled{" "}
-              <strong>OFF</strong> — the public Scoreboard link is hidden in the Arena header.
+              <code className="font-mono">live_scoreboard_enabled</code> is currently{" "}
+              <strong>OFF</strong> — header link is hidden in the Arena.
             </span>
             <button
               type="button"
               onClick={handleToggleScoreboardFlag}
-              className="rounded-lg bg-amber-400/20 border border-amber-400/40 px-2.5 py-1 font-semibold cursor-pointer"
+              className="rounded border border-[#f5c518]/50 bg-[#f5c518]/20 px-2.5 py-1 font-semibold cursor-pointer"
             >
-              Re-enable Link
+              Re-enable
             </button>
           </div>
         )}
 
-        {/* Summary Banner + Statistical Integrity */}
-        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/25 via-[#0d1018] to-orange-950/20 p-5 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
-                <Trophy className="h-4 w-4" />
-                Bayesian Experiment Verdict
+        {/* Unified KPI & Bayesian Verdict Card */}
+        <div className="rounded-xl border border-zinc-800 bg-[#111115] overflow-hidden">
+          <div className="p-5 flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-[#f5c518]">
+                <Trophy className="h-3.5 w-3.5" />
+                Bayesian Verdict · {scoreboard.experimentKey}
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] normal-case ${
+                  className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] normal-case ${
                     scoreboard.sampleRatioMismatch.hasMismatch
-                      ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                      : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                      ? "border-red-500/40 bg-red-950/30 text-red-300"
+                      : "border-zinc-700 bg-[#09090b] text-zinc-300"
                   }`}
                 >
                   {scoreboard.sampleRatioMismatch.hasMismatch ? (
-                    <ShieldAlert className="h-3 w-3" />
+                    <ShieldAlert className="h-3 w-3 text-red-400" />
                   ) : (
-                    <ShieldCheck className="h-3 w-3" />
+                    <ShieldCheck className="h-3 w-3 text-[#f5c518]" />
                   )}
                   {scoreboard.sampleRatioMismatch.hasMismatch
                     ? `SRM Alert (χ²=${scoreboard.sampleRatioMismatch.chiSquare})`
                     : `SRM Healthy (${Math.round(scoreboard.sampleRatioMismatch.actualSplitA * 100)}/${100 - Math.round(scoreboard.sampleRatioMismatch.actualSplitA * 100)})`}
                 </span>
               </div>
-              <p className="text-sm font-medium text-slate-100">{scoreboard.summary}</p>
+              <p className="text-sm font-medium text-zinc-100">{scoreboard.summary}</p>
             </div>
-            <div className="flex items-center gap-5 font-mono text-xs">
-              <div>
-                <span className="text-slate-400 block">Total Exposures</span>
-                <span className="text-lg font-bold text-slate-50">
-                  {scoreboard.totalExposures}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block">Rewrite Copies</span>
-                <span className="text-lg font-bold text-emerald-400">
-                  {scoreboard.totalCopies}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 block">Power Gate</span>
-                <span
-                  className={`text-lg font-bold ${
-                    scoreboard.winnerConfidenceMet
-                      ? "text-emerald-300"
-                      : "text-amber-300"
-                  }`}
-                >
-                  {scoreboard.minSamplesObserved}/{scoreboard.minSamplesPerArmTarget}
-                </span>
-              </div>
+
+            <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <CheckCircle2
+                className={`h-3.5 w-3.5 ${
+                  scoreboard.winnerConfidenceMet ? "text-[#f5c518]" : "text-zinc-600"
+                }`}
+              />
+              <span>
+                {scoreboard.winnerConfidenceMet
+                  ? "Confidence Met (90%+ & ≥20/arm)"
+                  : scoreboard.samplesNeeded > 0
+                    ? `Need ${scoreboard.samplesNeeded} more on smaller arm`
+                    : "Awaiting 90% posterior"}
+              </span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 border-t border-slate-800/70 pt-3">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2
-                className={`h-3.5 w-3.5 ${
-                  scoreboard.winnerConfidenceMet ? "text-emerald-400" : "text-slate-500"
-                }`}
-              />
-              {scoreboard.winnerConfidenceMet
-                ? "90%+ Bayesian probability & minimum 20 exposures/arm reached — statistically safe to promote winner."
-                : scoreboard.samplesNeeded > 0
-                  ? `Collect ${scoreboard.samplesNeeded} more exposure(s) on the smaller arm to clear the 20/arm minimum sample gate.`
-                  : "Sample gate cleared — waiting for >= 90.0% Bayesian win probability."}
-            </span>
-            <span className="font-mono text-[10px] text-slate-500">
-              4,000 Beta-Binomial Monte Carlo draws
-            </span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-800 border-t border-zinc-800 bg-[#09090b] font-mono">
+            <div className="p-4">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500 block">
+                Total Exposures
+              </span>
+              <span className="text-xl font-bold text-zinc-50 tabular-nums mt-0.5 block">
+                {scoreboard.totalExposures}
+              </span>
+            </div>
+            <div className="p-4">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500 block">
+                Primary KPI · Copies
+              </span>
+              <span className="text-xl font-bold text-[#f5c518] tabular-nums mt-0.5 block">
+                {scoreboard.totalCopies}
+              </span>
+            </div>
+            <div className="p-4">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500 block">
+                Min Sample Gate
+              </span>
+              <span className="text-xl font-bold text-zinc-100 tabular-nums mt-0.5 block">
+                {scoreboard.minSamplesObserved}/{scoreboard.minSamplesPerArmTarget}
+              </span>
+            </div>
+            <div className="p-4">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500 block">
+                Simulation Draws
+              </span>
+              <span className="text-xl font-bold text-zinc-300 tabular-nums mt-0.5 block">
+                4,000
+              </span>
+            </div>
           </div>
         </div>
 
@@ -346,35 +354,40 @@ export function ScoreboardView() {
         <div className="grid md:grid-cols-2 gap-5">
           {scoreboard.variants.map((v) => {
             const isLeader = v.variant === scoreboard.leadingVariant;
-            const isControl = v.variant === "brutal_checklist";
-            const liftLabel = isControl
+            const isVariantA = v.variant === "brutal_checklist";
+            const liftLabel = isVariantA
               ? "Control Baseline"
               : `${v.liftVsControlPercent >= 0 ? "+" : ""}${v.liftVsControlPercent.toFixed(1)}% Lift vs A`;
 
             return (
               <div
                 key={v.variant}
-                className={`rounded-2xl border p-5 space-y-4 ${
-                  isLeader
-                    ? "border-emerald-500/50 bg-[#0d1018]"
-                    : "border-slate-800 bg-[#0d1018]"
+                className={`rounded-xl border p-5 space-y-4 bg-[#111115] ${
+                  isLeader ? "border-[#f5c518]/60" : "border-zinc-800"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="text-sm font-semibold text-slate-100">
-                      {v.label}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          isVariantA ? "bg-[#f5c518]" : "bg-zinc-100"
+                        }`}
+                      />
+                      <span className="text-sm font-semibold text-zinc-100">
+                        {v.label}
+                      </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-400 mt-0.5">
+                    <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-zinc-500 mt-1">
                       <span>Traffic: {v.trafficPercent}%</span>
                       <span>·</span>
                       <span
                         className={
-                          isControl
-                            ? "text-slate-400"
+                          isVariantA
+                            ? "text-zinc-400"
                             : v.liftVsControlPercent >= 0
-                              ? "text-emerald-300"
-                              : "text-rose-300"
+                              ? "text-[#f5c518]"
+                              : "text-red-400"
                         }
                       >
                         {liftLabel}
@@ -382,54 +395,53 @@ export function ScoreboardView() {
                     </div>
                   </div>
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-mono text-xs font-bold shrink-0 ${
+                    className={`rounded border px-2.5 py-1 font-mono text-xs font-semibold tabular-nums shrink-0 ${
                       isLeader
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                        : "bg-slate-800 text-slate-300"
+                        ? "border-[#f5c518]/50 bg-[#f5c518]/15 text-[#f5c518]"
+                        : "border-zinc-800 bg-[#09090b] text-zinc-300"
                     }`}
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    {(v.chanceToWin * 100).toFixed(1)}% Win Prob
+                    {(v.chanceToWin * 100).toFixed(1)}% Win
                   </span>
                 </div>
 
-                <div className="h-2 w-full rounded-full bg-slate-900 overflow-hidden">
+                <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
                   <div
                     style={{ width: `${Math.round(v.chanceToWin * 100)}%` }}
                     className={`h-full transition-all duration-500 ${
-                      isLeader ? "bg-emerald-400" : "bg-orange-400"
+                      isVariantA ? "bg-[#f5c518]" : "bg-zinc-100"
                     }`}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-2.5">
-                    <span className="text-slate-500 block">Copy Conv.</span>
-                    <span className="font-mono text-sm font-bold text-slate-100">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                  <div className="rounded-lg border border-zinc-800 bg-[#09090b] p-2.5">
+                    <span className="text-zinc-500 block text-[11px]">Copy Conv.</span>
+                    <span className="font-mono text-sm font-bold text-zinc-100 tabular-nums">
                       {(v.copyConversionRate * 100).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-2.5">
-                    <span className="text-slate-500 block">Completion</span>
-                    <span className="font-mono text-sm font-bold text-slate-100">
+                  <div className="rounded-lg border border-zinc-800 bg-[#09090b] p-2.5">
+                    <span className="text-zinc-500 block text-[11px]">Completion</span>
+                    <span className="font-mono text-sm font-bold text-zinc-100 tabular-nums">
                       {(v.completionRate * 100).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-2.5">
-                    <span className="text-slate-500 block">Avg Rating</span>
-                    <span className="font-mono text-sm font-bold text-amber-300">
+                  <div className="rounded-lg border border-zinc-800 bg-[#09090b] p-2.5">
+                    <span className="text-zinc-500 block text-[11px]">Avg Rating</span>
+                    <span className="font-mono text-sm font-bold text-[#f5c518] tabular-nums">
                       {v.avgHelpfulness.toFixed(1)} ★
                     </span>
                   </div>
-                  <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-2.5">
-                    <span className="text-slate-500 block">Time to Copy</span>
-                    <span className="font-mono text-sm font-bold text-cyan-300">
+                  <div className="rounded-lg border border-zinc-800 bg-[#09090b] p-2.5">
+                    <span className="text-zinc-500 block text-[11px]">Time to Copy</span>
+                    <span className="font-mono text-sm font-bold text-zinc-200 tabular-nums">
                       {(v.avgTimeToCopyMs / 1000).toFixed(1)}s
                     </span>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-400 border-t border-slate-800/80 pt-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-500 border-t border-zinc-800 pt-3 tabular-nums">
                   <span>
                     Exposures: {v.exposures} · Copies: {v.rewriteCopies}
                   </span>
@@ -443,21 +455,21 @@ export function ScoreboardView() {
           })}
         </div>
 
-        {/* Visual Funnel & 2nd Experiment (rewrite_unlock_flow) */}
+        {/* Visual Funnel & 2nd Experiment */}
         <div className="grid lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 rounded-2xl border border-slate-800 bg-[#0d1018] p-5 space-y-4">
+          <div className="lg:col-span-7 rounded-xl border border-zinc-800 bg-[#111115] p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-                <Layers className="h-4 w-4 text-cyan-400" />
-                Conversion Funnel Comparison
+              <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                <Layers className="h-4 w-4 text-[#f5c518]" />
+                Funnel Drop-Off
               </h2>
               <div className="flex items-center gap-3 text-[11px] font-mono">
-                <span className="text-emerald-300">■ Variant A</span>
-                <span className="text-cyan-300">■ Variant B</span>
+                <span className="text-[#f5c518]">■ Variant A</span>
+                <span className="text-zinc-200">■ Variant B</span>
               </div>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3.5 text-xs">
               {[
                 {
                   stage: "1. Flag Exposed ($flag_exposure)",
@@ -503,23 +515,23 @@ export function ScoreboardView() {
                 },
               ].map((row) => (
                 <div key={row.stage} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-slate-300">
+                  <div className="flex items-center justify-between text-zinc-300">
                     <span>{row.stage}</span>
-                    <span className="font-mono text-[11px] text-slate-400">
+                    <span className="font-mono text-[11px] text-zinc-400 tabular-nums">
                       A: {row.aVal} ({row.aPct}%) · B: {row.bVal} ({row.bPct}%)
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="h-2 rounded-full bg-slate-900 overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
                       <div
                         style={{ width: `${row.aPct}%` }}
-                        className="h-full bg-emerald-400 transition-all duration-500"
+                        className="h-full bg-[#f5c518] transition-all duration-500"
                       />
                     </div>
-                    <div className="h-2 rounded-full bg-slate-900 overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
                       <div
                         style={{ width: `${row.bPct}%` }}
-                        className="h-full bg-cyan-400 transition-all duration-500"
+                        className="h-full bg-zinc-100 transition-all duration-500"
                       />
                     </div>
                   </div>
@@ -528,21 +540,18 @@ export function ScoreboardView() {
             </div>
           </div>
 
-          {/* 2nd Multivariate Experiment: rewrite_unlock_flow */}
-          <div className="lg:col-span-5 rounded-2xl border border-slate-800 bg-[#0d1018] p-5 space-y-4">
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-100">
-                  Experiment 2 · Unlock Gate
-                </h2>
-                <code className="rounded bg-slate-900 border border-slate-700 px-2 py-0.5 font-mono text-[10px] text-orange-300">
-                  rewrite_unlock_flow
-                </code>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Measures whether instant rewrite reveal converts better than an explicit unlock button.
-              </p>
+          <div className="lg:col-span-5 rounded-xl border border-zinc-800 bg-[#111115] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-zinc-100">
+                Experiment 2 · Unlock Gate
+              </h2>
+              <code className="rounded border border-zinc-800 bg-[#09090b] px-2 py-0.5 font-mono text-[10px] text-[#f5c518]">
+                rewrite_unlock_flow
+              </code>
             </div>
+            <p className="text-xs text-zinc-400">
+              Compares immediate rewrite reveal against an interactive unlock action.
+            </p>
 
             <div className="space-y-2.5">
               {scoreboard.unlockExperiment.variants.map((uv) => {
@@ -551,24 +560,22 @@ export function ScoreboardView() {
                 return (
                   <div
                     key={uv.variant}
-                    className={`rounded-xl border p-3.5 space-y-2 ${
-                      isWinner
-                        ? "border-cyan-500/40 bg-cyan-950/15"
-                        : "border-slate-800 bg-slate-950/60"
+                    className={`rounded-lg border p-3.5 space-y-2 bg-[#09090b] ${
+                      isWinner ? "border-[#f5c518]/50" : "border-zinc-800"
                     }`}
                   >
                     <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-slate-100">
+                      <span className="font-semibold text-zinc-100">
                         {uv.label}{" "}
-                        <code className="font-mono text-[10px] text-slate-400">
+                        <code className="font-mono text-[10px] text-zinc-500">
                           ({uv.variant})
                         </code>
                       </span>
-                      <span className="font-mono font-bold text-cyan-300">
+                      <span className="font-mono font-bold text-[#f5c518] tabular-nums">
                         {(uv.chanceToWin * 100).toFixed(1)}% Win
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-zinc-400 tabular-nums">
                       <span>
                         Copy Conv: {(uv.copyConversionRate * 100).toFixed(1)}%
                       </span>
@@ -585,13 +592,13 @@ export function ScoreboardView() {
 
         {/* Traffic Split + Cohort Segmentation */}
         <div className="grid lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-5 rounded-2xl border border-slate-800 bg-[#0d1018] p-5 space-y-4">
-            <h2 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-              <Flame className="h-4 w-4 text-orange-400" />
+          <div className="lg:col-span-5 rounded-xl border border-zinc-800 bg-[#111115] p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+              <Flame className="h-4 w-4 text-[#f5c518]" />
               Traffic Split &amp; Flag Controls
             </h2>
-            <p className="text-xs text-slate-400">
-              Shift traffic weights dynamically or promote the winning variant to 100% of visitors.
+            <p className="text-xs text-zinc-400">
+              Shift traffic allocation dynamically or promote the winning variant to 100%.
             </p>
             <div className="flex flex-wrap gap-2">
               {[
@@ -606,10 +613,10 @@ export function ScoreboardView() {
                   type="button"
                   disabled={busy}
                   onClick={() => handleWeightShift(preset.val)}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium cursor-pointer ${
+                  className={`rounded-md border px-3 py-1.5 text-xs font-medium cursor-pointer ${
                     store.weights.brutal_checklist === preset.val
-                      ? "border-orange-500 bg-orange-500/20 text-orange-200"
-                      : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+                      ? "border-[#f5c518] bg-[#f5c518] text-black font-semibold"
+                      : "border-zinc-800 bg-[#09090b] text-zinc-300 hover:border-zinc-700"
                   }`}
                 >
                   {preset.label}
@@ -617,39 +624,39 @@ export function ScoreboardView() {
               ))}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
-              <span className="text-slate-400">
-                Flag 3: <code className="text-slate-200">live_scoreboard_enabled</code>
+            <div className="flex items-center justify-between border-t border-zinc-800 pt-3 text-xs">
+              <span className="text-zinc-400">
+                Flag 3: <code className="font-mono text-zinc-200">live_scoreboard_enabled</code>
               </span>
               <button
                 type="button"
                 disabled={busy}
                 onClick={handleToggleScoreboardFlag}
-                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium cursor-pointer ${
                   store.scoreboardEnabled
-                    ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200"
-                    : "border-slate-700 bg-slate-900 text-slate-400"
+                    ? "border-[#f5c518]/40 bg-[#f5c518]/10 text-[#f5c518]"
+                    : "border-zinc-800 bg-[#09090b] text-zinc-500"
                 }`}
               >
                 <Eye className="h-3 w-3" />
-                {store.scoreboardEnabled ? "Enabled (Visible)" : "Disabled"}
+                {store.scoreboardEnabled ? "Enabled" : "Hidden"}
               </button>
             </div>
           </div>
 
-          <div className="lg:col-span-7 rounded-2xl border border-slate-800 bg-[#0d1018] p-5 space-y-3">
+          <div className="lg:col-span-7 rounded-xl border border-zinc-800 bg-[#111115] p-5 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-slate-100">
+              <h2 className="text-sm font-semibold text-zinc-100">
                 Segment Breakdown (Flagsmith Traits)
               </h2>
-              <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[11px]">
+              <div className="inline-flex rounded-md border border-zinc-800 bg-[#09090b] p-0.5 text-[11px]">
                 <button
                   type="button"
                   onClick={() => setSegmentTab("input")}
-                  className={`rounded-md px-2.5 py-1 cursor-pointer ${
+                  className={`rounded px-2.5 py-1 cursor-pointer ${
                     segmentTab === "input"
-                      ? "bg-orange-500 text-slate-950 font-semibold"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-[#f5c518] text-black font-semibold"
+                      : "text-zinc-400 hover:text-zinc-100"
                   }`}
                 >
                   By Input Type
@@ -657,10 +664,10 @@ export function ScoreboardView() {
                 <button
                   type="button"
                   onClick={() => setSegmentTab("experience")}
-                  className={`rounded-md px-2.5 py-1 cursor-pointer ${
+                  className={`rounded px-2.5 py-1 cursor-pointer ${
                     segmentTab === "experience"
-                      ? "bg-orange-500 text-slate-950 font-semibold"
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-[#f5c518] text-black font-semibold"
+                      : "text-zinc-400 hover:text-zinc-100"
                   }`}
                 >
                   By Experience Level
@@ -670,25 +677,25 @@ export function ScoreboardView() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-800 text-slate-400">
+                  <tr className="border-b border-zinc-800 text-zinc-500 font-mono text-[11px]">
                     <th className="py-2 pr-4 font-medium">Segment</th>
                     <th className="py-2 pr-4 font-medium">Brutal Checklist Copy %</th>
                     <th className="py-2 font-medium">Guided Coach Copy %</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/70">
+                <tbody className="divide-y divide-zinc-800/80">
                   {activeSegments.map((c) => (
                     <tr key={c.cohortKey}>
-                      <td className="py-2.5 pr-4 font-medium text-slate-200">
+                      <td className="py-2.5 pr-4 font-medium text-zinc-200">
                         {c.label}
                       </td>
-                      <td className="py-2.5 pr-4 font-mono text-emerald-300">
+                      <td className="py-2.5 pr-4 font-mono text-[#f5c518] tabular-nums">
                         {(c.brutalCopyRate * 100).toFixed(1)}%{" "}
-                        <span className="text-slate-500">({c.brutalExposures})</span>
+                        <span className="text-zinc-500">({c.brutalExposures})</span>
                       </td>
-                      <td className="py-2.5 font-mono text-cyan-300">
+                      <td className="py-2.5 font-mono text-zinc-100 tabular-nums">
                         {(c.coachCopyRate * 100).toFixed(1)}%{" "}
-                        <span className="text-slate-500">({c.coachExposures})</span>
+                        <span className="text-zinc-500">({c.coachExposures})</span>
                       </td>
                     </tr>
                   ))}
@@ -699,12 +706,12 @@ export function ScoreboardView() {
         </div>
 
         {/* Live Submission Feed */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0d1018] p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-slate-100">
+        <div className="rounded-xl border border-zinc-800 bg-[#111115] p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-zinc-100">
             Recent Anonymized Roast Sessions
           </h2>
           {store.recentFeed.length === 0 ? (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-zinc-500">
               No sessions logged yet. Run a roast in the Arena or simulate sessions above.
             </p>
           ) : (
@@ -712,39 +719,39 @@ export function ScoreboardView() {
               {store.recentFeed.slice(0, 9).map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs space-y-1"
+                  className="rounded-lg border border-zinc-800 bg-[#09090b] p-3 text-xs space-y-1.5"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-orange-300">{item.variant}</span>
+                      <span className="font-mono text-zinc-200">{item.variant}</span>
                       <span
-                        className={`rounded px-1.5 py-0.5 font-mono text-[9px] uppercase ${
+                        className={`rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase ${
                           item.trafficSource === "live"
-                            ? "bg-emerald-500/15 text-emerald-300"
-                            : "bg-slate-800 text-slate-400"
+                            ? "border-[#f5c518]/40 bg-[#f5c518]/10 text-[#f5c518]"
+                            : "border-zinc-800 bg-zinc-900 text-zinc-500"
                         }`}
                       >
                         {item.trafficSource === "live" ? "Live" : "Sim"}
                       </span>
                     </div>
-                    <span className="font-mono font-bold text-slate-200">
+                    <span className="font-mono font-bold text-zinc-100 tabular-nums">
                       {item.score}/100
                     </span>
                   </div>
-                  <div className="text-slate-400">
+                  <div className="text-zinc-500 text-[11px]">
                     {item.inputType} · {item.experienceLevel}
                     {item.role ? ` · ${item.role}` : ""}
                   </div>
-                  <div className="flex items-center justify-between text-[11px] pt-1">
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-zinc-900">
                     <span
                       className={
-                        item.copiedRewrite ? "text-emerald-400" : "text-slate-500"
+                        item.copiedRewrite ? "text-[#f5c518]" : "text-zinc-500"
                       }
                     >
                       {item.copiedRewrite ? "Copied Rewrite" : "Viewed Only"}
                     </span>
                     {item.rating && (
-                      <span className="text-amber-300">{item.rating} ★</span>
+                      <span className="font-mono text-[#f5c518]">{item.rating} ★</span>
                     )}
                   </div>
                 </div>

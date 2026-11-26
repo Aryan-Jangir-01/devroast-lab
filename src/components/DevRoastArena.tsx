@@ -11,13 +11,11 @@ import {
 import type { IState } from "@flagsmith/flagsmith/types";
 import {
   Activity,
-  AlertTriangle,
   ArrowRight,
   BarChart3,
   Check,
-  CheckCircle2,
   ClipboardCopy,
-  FileText,
+  FileCode2,
   Flame,
   GitBranch,
   Loader2,
@@ -26,7 +24,6 @@ import {
   Share2,
   Sparkles,
   Star,
-  Target,
 } from "lucide-react";
 import { ConnectFlagsmithModal } from "@/components/ConnectFlagsmithModal";
 import { FlagsmithInspector } from "@/components/FlagsmithInspector";
@@ -212,8 +209,7 @@ function ArenaInner({
     }
   };
 
-  const handleAnalyze = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const runAnalysis = async () => {
     setLoading(true);
     setError(null);
     setCopied(false);
@@ -319,6 +315,11 @@ function ArenaInner({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAnalyze = (e: React.FormEvent) => {
+    e.preventDefault();
+    void runAnalysis();
   };
 
   const isGuided = strategyVariant === "guided_coach";
@@ -455,6 +456,15 @@ function ArenaInner({
     ? Math.min(99, analysis.overallScore + checkedCount * 4)
     : 0;
 
+  const wordCount = useMemo(
+    () => text.trim().split(/\s+/).filter(Boolean).length,
+    [text]
+  );
+  const lineCount = useMemo(
+    () => (text.trim() ? text.trim().split(/\r?\n/).length : 0),
+    [text]
+  );
+
   const allFlags = flagsmith.getAllFlags() || {};
   const flagsSnapshot = [
     "roast_strategy_experiment",
@@ -472,108 +482,128 @@ function ArenaInner({
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-[#07080d]/90 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-rose-500 text-slate-950 shadow-lg shadow-orange-500/20">
-              <Flame className="h-5 w-5" />
+      {/* Crisp Top Navigation */}
+      <header className="sticky top-0 z-30 border-b border-zinc-800 bg-[#09090b]/95 backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#f5c518] text-black">
+              <Flame className="h-4 w-4 stroke-[2.25]" />
             </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-base font-bold text-slate-50">DevRoast Lab</h1>
-                <span className="rounded-full border border-orange-500/40 bg-orange-500/15 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-orange-300">
-                  Flagsmith: {strategyVariant}
-                </span>
-                <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-slate-400">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-sm sm:text-base font-bold tracking-tight text-zinc-50">
+                  DevRoast Lab
+                </h1>
+                <span className="hidden sm:inline-flex items-center gap-1.5 rounded border border-zinc-800 bg-[#111115] px-2 py-0.5 font-mono text-[10px] text-zinc-300">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      connection.mode === "live_flagsmith"
+                        ? "bg-[#f5c518]"
+                        : "bg-zinc-500"
+                    }`}
+                  />
                   {connection.mode === "live_flagsmith"
                     ? "Live Flagsmith Edge"
-                    : "Local Experiment Mode"}
+                    : "Local Mode"}
+                </span>
+                <span className="rounded border border-[#f5c518]/35 bg-[#f5c518]/10 px-2 py-0.5 font-mono text-[10px] font-medium text-[#f5c518]">
+                  {strategyVariant}
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                Toggle Wars Track 01 · Live A/B Test: Brutal Checklist vs Guided Coach
+              <p className="hidden md:block text-[11px] text-zinc-500">
+                Toggle Wars Track 01 · Experimenting Brutal Checklist vs Guided Coach
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onRotateVisitor}
-              title="Assign a fresh visitor identity to test Flagsmith multivariate bucketing"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 hover:bg-slate-800 px-3 py-2 font-mono text-[11px] text-slate-300 cursor-pointer"
+              title="Rotate Flagsmith visitor identity to test deterministic A/B bucketing"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#111115] hover:border-zinc-700 px-2.5 py-1.5 font-mono text-[11px] text-zinc-300 hover:text-zinc-50 cursor-pointer"
             >
-              <RefreshCw className="h-3.5 w-3.5 text-cyan-400" />
-              {visitorId}
+              <RefreshCw className="h-3 w-3 text-[#f5c518]" />
+              <span className="hidden sm:inline">{visitorId}</span>
+              <span className="sm:hidden">Visitor</span>
             </button>
 
             <button
               type="button"
               onClick={onOpenInspector}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/35 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-2 text-xs font-medium text-cyan-200 cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#111115] hover:border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-zinc-200 cursor-pointer"
             >
-              <Activity className="h-3.5 w-3.5" />
-              SDK Inspector ({sdkLogs.length})
+              <Activity className="h-3.5 w-3.5 text-[#f5c518]" />
+              <span className="hidden sm:inline">SDK Inspector</span>
+              <span className="font-mono text-[10px] text-zinc-400">
+                ({sdkLogs.length})
+              </span>
             </button>
 
             {showScoreboardLink && (
               <Link
                 href="/scoreboard"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 hover:bg-emerald-500/25 px-3 py-2 text-xs font-semibold text-emerald-200"
+                className="inline-flex items-center gap-1.5 rounded-md border border-[#f5c518]/40 bg-[#f5c518]/10 hover:bg-[#f5c518]/20 px-2.5 py-1.5 text-xs font-semibold text-[#f5c518]"
               >
                 <BarChart3 className="h-3.5 w-3.5" />
-                Live Scoreboard ({scoreboard.totalExposures})
+                <span>Scoreboard</span>
+                <span className="font-mono text-[10px] tabular-nums">
+                  {scoreboard.totalExposures}
+                </span>
               </Link>
             )}
 
             <button
               type="button"
               onClick={onOpenSettings}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 cursor-pointer"
+              aria-label="Flagsmith Setup"
+              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#111115] hover:border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-zinc-50 cursor-pointer"
             >
-              <Settings className="h-3.5 w-3.5 text-orange-400" />
-              Flagsmith Setup
+              <Settings className="h-3.5 w-3.5 text-zinc-400" />
+              <span className="hidden md:inline">Setup</span>
             </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 py-6 grid lg:grid-cols-12 gap-6">
-        {/* Left: Submission & Persona Traits */}
-        <section className="lg:col-span-5 space-y-4">
-          <div className="rounded-2xl border border-slate-800 bg-[#0d1018] p-5 space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-base font-semibold text-slate-100">
-                Paste Your README, Resume, or Pitch
-              </h2>
-              <p className="text-xs text-slate-400">
-                Flagsmith identifies your traits and buckets you into Variant A or B in real time.
-              </p>
-            </div>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 sm:px-6 py-6 grid lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Input Workbench */}
+        <section className="lg:col-span-5 rounded-xl border border-zinc-800 bg-[#111115] overflow-hidden">
+          <div className="border-b border-zinc-800 px-5 py-4">
+            <h2 className="text-sm font-semibold text-zinc-100">
+              Source Draft
+            </h2>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Paste a README, resume bullets, or pitch — traits route directly to Flagsmith.
+            </p>
+          </div>
 
-            {/* Input Type Tabs */}
-            <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-slate-950 p-1 border border-slate-800">
+          <div className="p-5 space-y-4">
+            {/* Segmented Control */}
+            <div className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-[#09090b] p-1 gap-1">
               {(
                 [
                   { id: "github_readme", label: "GitHub README" },
                   { id: "resume_bullets", label: "Resume Bullets" },
                   { id: "project_pitch", label: "Project Pitch" },
                 ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => handleLoadSample(tab.id)}
-                  className={`rounded-lg py-2 px-2 text-xs font-medium transition cursor-pointer ${
-                    inputType === tab.id
-                      ? "bg-orange-500 text-slate-950 font-semibold"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              ).map((tab) => {
+                const active = inputType === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => handleLoadSample(tab.id)}
+                    className={`rounded-md py-1.5 px-2 text-xs transition cursor-pointer ${
+                      active
+                        ? "bg-[#f5c518] text-black font-semibold"
+                        : "text-zinc-400 hover:text-zinc-100"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
             </div>
 
             {inputType === "github_readme" && (
@@ -582,43 +612,43 @@ function ArenaInner({
                   type="text"
                   value={githubUrl}
                   onChange={(e) => setGithubUrl(e.target.value)}
-                  placeholder="Optional: https://github.com/owner/repo"
-                  className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 font-mono text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none"
+                  placeholder="https://github.com/owner/repo"
+                  className="flex-1 rounded-md border border-zinc-800 bg-[#09090b] px-3 py-2 font-mono text-[11px] text-zinc-200 placeholder:text-zinc-600 focus:border-[#f5c518] focus:outline-none"
                 />
                 <button
                   type="button"
                   disabled={fetchingRepo || !githubUrl.trim()}
                   onClick={handleFetchGithubReadme}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 px-3 py-2 text-xs font-medium text-slate-200 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 px-3 py-2 text-xs font-medium text-zinc-200 cursor-pointer"
                 >
                   {fetchingRepo ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-[#f5c518]" />
                   ) : (
-                    <GitBranch className="h-3.5 w-3.5 text-cyan-400" />
+                    <GitBranch className="h-3.5 w-3.5 text-[#f5c518]" />
                   )}
-                  Fetch README
+                  Fetch
                 </button>
               </div>
             )}
 
             <div className="grid sm:grid-cols-2 gap-3">
               <label className="space-y-1 text-xs">
-                <span className="text-slate-400">Target Role (Flagsmith Trait)</span>
+                <span className="text-zinc-400 font-medium">Target Role</span>
                 <input
                   type="text"
                   value={role}
                   onChange={(e) => onRoleChange(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100"
+                  className="w-full rounded-md border border-zinc-800 bg-[#09090b] px-3 py-2 text-xs text-zinc-100 focus:border-[#f5c518] focus:outline-none"
                 />
               </label>
               <label className="space-y-1 text-xs">
-                <span className="text-slate-400">Experience Level (Segment)</span>
+                <span className="text-zinc-400 font-medium">Level (Segment)</span>
                 <select
                   value={experienceLevel}
                   onChange={(e) =>
                     onExperienceLevelChange(e.target.value as ExperienceLevel)
                   }
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100"
+                  className="w-full rounded-md border border-zinc-800 bg-[#09090b] px-3 py-2 text-xs text-zinc-100 focus:border-[#f5c518] focus:outline-none"
                 >
                   <option value="student">Student / Fresher</option>
                   <option value="mid">Mid-Level Engineer</option>
@@ -628,105 +658,206 @@ function ArenaInner({
             </div>
 
             <form onSubmit={handleAnalyze} className="space-y-3">
-              <textarea
-                rows={8}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Paste your markdown README, resume bullets, or hackathon pitch..."
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 p-3.5 font-mono text-xs text-slate-100 placeholder:text-slate-600 focus:border-orange-500 focus:outline-none"
-              />
+              <div className="rounded-lg border border-zinc-800 bg-[#09090b] focus-within:border-[#f5c518] transition overflow-hidden">
+                <textarea
+                  rows={9}
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !loading) {
+                      e.preventDefault();
+                      void runAnalysis();
+                    }
+                  }}
+                  placeholder="Paste your markdown README, resume bullets, or hackathon pitch..."
+                  className="w-full bg-transparent p-3.5 font-mono text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none resize-y leading-relaxed"
+                />
+                <div className="flex items-center justify-between border-t border-zinc-800/80 px-3.5 py-1.5 font-mono text-[10px] text-zinc-500">
+                  <span className="tabular-nums">
+                    {wordCount} words · {lineCount} lines
+                  </span>
+                  <span>Ctrl + Enter</span>
+                </div>
+              </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-400 hover:to-rose-400 disabled:opacity-50 px-4 py-2.5 text-sm font-semibold text-slate-950 transition cursor-pointer"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-md bg-[#f5c518] hover:bg-[#ffd43b] disabled:opacity-50 px-4 py-2.5 text-sm font-semibold text-black transition cursor-pointer"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Flame className="h-4 w-4" />
+                  <Flame className="h-4 w-4 stroke-[2.25]" />
                 )}
-                {loading ? "Roasting & Scoring..." : "Roast & Upgrade My Copy"}
+                {loading ? "Analyzing Draft..." : "Roast & Upgrade Copy"}
               </button>
             </form>
 
             {error && (
-              <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-200">
+              <div className="rounded-md border border-red-500/40 bg-red-950/30 p-3 text-xs text-red-300">
                 {error}
               </div>
             )}
           </div>
         </section>
 
-        {/* Right: Flagsmith Variant Experience */}
+        {/* Right Column: Experiment View & Results */}
         <section className="lg:col-span-7">
           {!analysis ? (
-            <div className="h-full min-h-[420px] rounded-2xl border border-dashed border-slate-800 bg-[#0d1018]/60 p-8 flex flex-col items-center justify-center text-center space-y-3">
-              <Target className="h-10 w-10 text-orange-400/80" />
-              <h3 className="text-base font-semibold text-slate-100">
-                Active Flagsmith Bucket:{" "}
-                <code className="font-mono text-orange-300">{strategyVariant}</code>
-                <span className="text-slate-500 font-normal"> · </span>
-                <code className="font-mono text-cyan-300 text-xs">{unlockVariant}</code>
-              </h3>
-              <p className="text-xs text-slate-400 max-w-md leading-relaxed">
-                Click <strong>&quot;Roast &amp; Upgrade My Copy&quot;</strong> on the left to experience your Flagsmith-assigned variant. Click the visitor ID pill above anytime to test deterministic A/B bucketing, or inspect live SDK payloads in{" "}
-                <button
-                  type="button"
-                  onClick={onOpenInspector}
-                  className="text-cyan-300 underline cursor-pointer"
-                >
-                  SDK Inspector
-                </button>
-                .
-              </p>
+            <div className="rounded-xl border border-zinc-800 bg-[#111115] overflow-hidden">
+              <div className="border-b border-zinc-800 px-6 py-4 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 block">
+                    Flagsmith Experiment Assignment
+                  </span>
+                  <h3 className="text-sm font-semibold text-zinc-100 mt-0.5">
+                    Assigned Bucket:{" "}
+                    <code className="font-mono text-[#f5c518]">{strategyVariant}</code>
+                  </h3>
+                </div>
+                <span className="rounded border border-zinc-800 bg-[#09090b] px-2.5 py-1 font-mono text-[11px] text-zinc-400">
+                  unlock: {unlockVariant}
+                </span>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div
+                    className={`rounded-lg border p-4 space-y-1.5 ${
+                      strategyVariant === "brutal_checklist"
+                        ? "border-[#f5c518]/60 bg-[#f5c518]/[0.04]"
+                        : "border-zinc-800 bg-[#09090b]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-semibold text-zinc-100">
+                        Variant A · Brutal Checklist
+                      </span>
+                      {strategyVariant === "brutal_checklist" && (
+                        <span className="rounded bg-[#f5c518] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase text-black">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Blunt red-flag teardown with inline Before → After snippets and an interactive 4-point fix list.
+                    </p>
+                  </div>
+
+                  <div
+                    className={`rounded-lg border p-4 space-y-1.5 ${
+                      strategyVariant === "guided_coach"
+                        ? "border-[#f5c518]/60 bg-[#f5c518]/[0.04]"
+                        : "border-zinc-800 bg-[#09090b]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-semibold text-zinc-100">
+                        Variant B · Guided Coach
+                      </span>
+                      {strategyVariant === "guided_coach" && (
+                        <span className="rounded bg-[#f5c518] px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase text-black">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Interactive 3-step diagnostic coaching where your chosen metrics customize the unlocked rewrite.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-zinc-800 bg-[#09090b]">
+                  <div className="border-b border-zinc-800 px-4 py-2.5 flex items-center justify-between text-[11px] font-mono text-zinc-400">
+                    <span>EVALUATION RUBRIC WEIGHTS</span>
+                    <span>PRIMARY KPI: rewrite_copied</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-800 text-xs">
+                    {[
+                      { k: "Impact", w: "34%", desc: "Quantified metrics" },
+                      { k: "Clarity", w: "24%", desc: "Hook & specificity" },
+                      { k: "Actionable", w: "24%", desc: "Setup / ownership" },
+                      { k: "Readable", w: "18%", desc: "Scannable lines" },
+                    ].map((item) => (
+                      <div key={item.k} className="p-3.5 space-y-0.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-zinc-200">{item.k}</span>
+                          <span className="font-mono text-[#f5c518] font-semibold">
+                            {item.w}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-500">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400 pt-1">
+                  <span>
+                    Run the draft on the left to trigger{" "}
+                    <code className="font-mono text-zinc-200">$flag_exposure</code> and{" "}
+                    <code className="font-mono text-zinc-200">roast_completed</code>.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onOpenInspector}
+                    className="font-mono text-[11px] text-[#f5c518] hover:underline cursor-pointer"
+                  >
+                    Open SDK Inspector →
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-800 bg-[#0d1018] p-6 space-y-5">
-              {/* Top Score Summary */}
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
-                <div className="space-y-1">
+            <div className="rounded-xl border border-zinc-800 bg-[#111115] p-6 space-y-6">
+              {/* Scorecard Top Row */}
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-zinc-800 pb-5">
+                <div className="space-y-2 max-w-lg">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-orange-500/15 border border-orange-500/40 px-2.5 py-0.5 text-[11px] font-semibold text-orange-300">
+                    <span className="rounded border border-[#f5c518]/40 bg-[#f5c518]/10 px-2 py-0.5 text-[11px] font-semibold text-[#f5c518]">
                       {analysis.verdictBadge}
                     </span>
-                    <span className="rounded-full bg-slate-900 border border-slate-700 px-2.5 py-0.5 font-mono text-[10px] text-slate-300">
+                    <span className="rounded border border-zinc-800 bg-[#09090b] px-2 py-0.5 font-mono text-[10px] text-zinc-400">
                       {analysis.engineSource}
                     </span>
-                    <span className="rounded-full bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-0.5 font-mono text-[10px] text-cyan-300">
+                    <span className="rounded border border-zinc-800 bg-[#09090b] px-2 py-0.5 font-mono text-[10px] text-zinc-200">
                       {strategyVariant}
                     </span>
                   </div>
-                  <h2 className="text-base font-semibold text-slate-50">
+                  <h2 className="text-lg font-semibold tracking-tight text-zinc-50 leading-snug">
                     {analysis.roastHeadline}
                   </h2>
                 </div>
 
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-950 px-4 py-2">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                <div className="rounded-lg border border-zinc-800 bg-[#09090b] px-4 py-2.5 text-right min-w-[112px]">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 block">
                     Score
                   </span>
-                  <span
-                    className={`text-2xl font-bold font-mono ${
-                      analysis.overallScore >= 75
-                        ? "text-emerald-400"
-                        : analysis.overallScore >= 55
-                          ? "text-amber-400"
-                          : "text-rose-400"
-                    }`}
-                  >
-                    {analysis.overallScore}/100
-                  </span>
+                  <div className="flex items-baseline justify-end gap-1">
+                    <span
+                      className={`text-3xl font-bold font-mono tabular-nums ${
+                        analysis.overallScore >= 75
+                          ? "text-[#f5c518]"
+                          : analysis.overallScore >= 55
+                            ? "text-zinc-100"
+                            : "text-red-400"
+                      }`}
+                    >
+                      {analysis.overallScore}
+                    </span>
+                    <span className="font-mono text-xs text-zinc-500">/100</span>
+                  </div>
                   {checkedCount > 0 && (
-                    <span className="font-mono text-[10px] text-emerald-300">
-                      → {projectedScore} projected
+                    <span className="font-mono text-[10px] text-[#f5c518]">
+                      → {projectedScore} est.
                     </span>
                   )}
                 </div>
               </div>
 
               {/* 4 Pillar Metrics */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { label: "Impact", val: analysis.metricsBreakdown.impactScore },
                   { label: "Clarity", val: analysis.metricsBreakdown.clarityScore },
@@ -741,18 +872,18 @@ function ArenaInner({
                 ].map((m) => (
                   <div
                     key={m.label}
-                    className="rounded-xl border border-slate-800 bg-slate-950/70 p-2.5"
+                    className="rounded-lg border border-zinc-800 bg-[#09090b] p-3"
                   >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">{m.label}</span>
-                      <span className="font-mono font-semibold text-slate-200">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-400">{m.label}</span>
+                      <span className="font-mono font-semibold text-zinc-100 tabular-nums">
                         {m.val}
                       </span>
                     </div>
-                    <div className="mt-1.5 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div className="mt-2 h-1 w-full rounded-full bg-zinc-800 overflow-hidden">
                       <div
                         style={{ width: `${m.val}%` }}
-                        className="h-full bg-gradient-to-r from-orange-400 to-emerald-400"
+                        className="h-full bg-[#f5c518] transition-all duration-300"
                       />
                     </div>
                   </div>
@@ -761,11 +892,13 @@ function ArenaInner({
 
               {analysis.detectedStack.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                  <span className="text-slate-500">Detected Stack:</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 mr-1">
+                    Stack:
+                  </span>
                   {analysis.detectedStack.map((tech) => (
                     <span
                       key={tech}
-                      className="rounded-md border border-slate-800 bg-slate-950 px-2 py-0.5 font-mono text-[10px] text-slate-300"
+                      className="rounded border border-zinc-800 bg-[#09090b] px-2 py-0.5 font-mono text-[10px] text-zinc-300"
                     >
                       {tech}
                     </span>
@@ -775,48 +908,52 @@ function ArenaInner({
 
               {/* VARIANT A: BRUTAL CHECKLIST vs VARIANT B: GUIDED COACH */}
               {!isGuided ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-rose-300">
-                      Brutal Red Flags (Variant A · Fast Teardown)
+                <div className="space-y-5">
+                  <div className="space-y-2.5">
+                    <h3 className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                      Red Flags · Variant A Teardown
                     </h3>
-                    <div className="grid gap-2.5">
-                      {analysis.redFlags.map((flag) => (
+                    <div className="space-y-2.5">
+                      {analysis.redFlags.map((flag, idx) => (
                         <div
                           key={flag.id}
-                          className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs space-y-2"
+                          className={`rounded-lg border border-zinc-800 bg-[#09090b] p-3.5 text-xs space-y-2 border-l-2 ${
+                            flag.severity === "high"
+                              ? "border-l-red-500"
+                              : "border-l-[#f5c518]"
+                          }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 font-semibold text-slate-100">
-                              <AlertTriangle className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-                              {flag.title}
+                            <div className="flex items-center gap-2 font-semibold text-zinc-100">
+                              <span className="font-mono text-[11px] text-zinc-500">
+                                0{idx + 1}
+                              </span>
+                              <span>{flag.title}</span>
                             </div>
                             <span
-                              className={`rounded px-1.5 py-0.5 font-mono text-[10px] uppercase ${
+                              className={`rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase ${
                                 flag.severity === "high"
-                                  ? "bg-rose-500/15 text-rose-300"
-                                  : flag.severity === "medium"
-                                    ? "bg-amber-500/15 text-amber-300"
-                                    : "bg-emerald-500/15 text-emerald-300"
+                                  ? "border-red-500/30 bg-red-950/30 text-red-300"
+                                  : "border-[#f5c518]/30 bg-[#f5c518]/10 text-[#f5c518]"
                               }`}
                             >
                               {flag.severity}
                             </span>
                           </div>
-                          <p className="text-slate-400">{flag.detail}</p>
+                          <p className="text-zinc-400 leading-relaxed">{flag.detail}</p>
                           {(flag.beforeSnippet || flag.afterSnippet) && (
                             <div className="grid sm:grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
                               {flag.beforeSnippet && (
-                                <div className="rounded-lg border border-rose-500/25 bg-rose-950/20 p-2 text-rose-200">
-                                  <span className="block text-[9px] uppercase text-rose-400 mb-0.5">
+                                <div className="rounded border border-zinc-800 bg-[#111115] p-2.5 text-zinc-400">
+                                  <span className="block text-[9px] uppercase tracking-wider text-zinc-500 mb-1">
                                     Before
                                   </span>
                                   {flag.beforeSnippet}
                                 </div>
                               )}
                               {flag.afterSnippet && (
-                                <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/20 p-2 text-emerald-200">
-                                  <span className="block text-[9px] uppercase text-emerald-400 mb-0.5">
+                                <div className="rounded border border-[#f5c518]/30 bg-[#f5c518]/[0.05] p-2.5 text-zinc-100">
+                                  <span className="block text-[9px] uppercase tracking-wider text-[#f5c518] mb-1">
                                     After Fix
                                   </span>
                                   {flag.afterSnippet}
@@ -829,16 +966,16 @@ function ArenaInner({
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-300">
+                      <h3 className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
                         4-Point Fix Checklist
                       </h3>
-                      <span className="font-mono text-[11px] text-slate-400">
-                        {checkedCount}/{analysis.checklistFixes.length} reviewed
+                      <span className="font-mono text-[11px] text-[#f5c518] tabular-nums">
+                        {checkedCount}/{analysis.checklistFixes.length} checked
                       </span>
                     </div>
-                    <ul className="space-y-1.5 text-xs text-slate-300">
+                    <ul className="divide-y divide-zinc-800 rounded-lg border border-zinc-800 bg-[#09090b]">
                       {analysis.checklistFixes.map((fix, i) => {
                         const checked = Boolean(checkedFixes[i]);
                         return (
@@ -851,18 +988,26 @@ function ArenaInner({
                                   [i]: !prev[i],
                                 }))
                               }
-                              className={`w-full text-left flex items-start gap-2 rounded-lg border px-3 py-2 transition cursor-pointer ${
-                                checked
-                                  ? "border-emerald-500/40 bg-emerald-950/20 text-emerald-200 line-through decoration-emerald-500/50"
-                                  : "border-slate-800/70 bg-slate-950/40 hover:border-slate-700"
-                              }`}
+                              className="w-full text-left flex items-start gap-3 px-3.5 py-2.5 text-xs transition hover:bg-[#111115] cursor-pointer"
                             >
-                              <CheckCircle2
-                                className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${
-                                  checked ? "text-emerald-400" : "text-slate-600"
+                              <span
+                                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
+                                  checked
+                                    ? "border-[#f5c518] bg-[#f5c518] text-black"
+                                    : "border-zinc-700 bg-transparent text-transparent"
                                 }`}
-                              />
-                              <span>{fix}</span>
+                              >
+                                <Check className="h-3 w-3 stroke-[2.5]" />
+                              </span>
+                              <span
+                                className={
+                                  checked
+                                    ? "text-zinc-500 line-through"
+                                    : "text-zinc-200"
+                                }
+                              >
+                                {fix}
+                              </span>
                             </button>
                           </li>
                         );
@@ -874,7 +1019,7 @@ function ArenaInner({
                     <button
                       type="button"
                       onClick={() => setCoachUnlocked(true)}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 px-4 py-2.5 text-xs font-semibold text-orange-200 cursor-pointer"
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-[#f5c518] bg-[#f5c518]/10 hover:bg-[#f5c518]/20 px-4 py-2.5 text-xs font-semibold text-[#f5c518] cursor-pointer"
                     >
                       <Sparkles className="h-4 w-4" />
                       Reveal Improved Rewrite
@@ -884,8 +1029,8 @@ function ArenaInner({
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-cyan-300">
-                      Interactive Guided Coach (Variant B · Step {coachStep}/3)
+                    <h3 className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                      Guided Coach · Step 0{coachStep}/03
                     </h3>
                     <div className="flex gap-1.5">
                       {[1, 2, 3].map((s) => (
@@ -893,10 +1038,16 @@ function ArenaInner({
                           key={s}
                           type="button"
                           onClick={() => setCoachStep(s)}
-                          className={`h-2 w-8 rounded-full transition cursor-pointer ${
-                            s <= coachStep ? "bg-cyan-400" : "bg-slate-800"
+                          className={`rounded px-2 py-0.5 font-mono text-[10px] font-semibold transition cursor-pointer ${
+                            s === coachStep
+                              ? "bg-[#f5c518] text-black"
+                              : s < coachStep
+                                ? "border border-[#f5c518]/40 text-[#f5c518]"
+                                : "border border-zinc-800 text-zinc-500"
                           }`}
-                        />
+                        >
+                          0{s}
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -908,25 +1059,25 @@ function ArenaInner({
                       return (
                         <div
                           key={step.stepNumber}
-                          className="rounded-xl border border-cyan-500/30 bg-cyan-950/15 p-4 space-y-3"
+                          className="rounded-lg border border-zinc-800 bg-[#09090b] p-4 space-y-3.5"
                         >
-                          <div className="text-sm font-semibold text-slate-100">
-                            Step {step.stepNumber}: {step.title}
+                          <div className="text-sm font-semibold text-zinc-100">
+                            {step.stepNumber}. {step.title}
                           </div>
-                          <p className="text-xs text-cyan-200">
+                          <p className="text-xs text-zinc-300 leading-relaxed">
                             {step.diagnosticPrompt}
                           </p>
-                          <div className="rounded-lg bg-slate-950/70 border border-slate-800 p-3 text-xs space-y-1">
-                            <div className="text-slate-400">{step.coachTip}</div>
-                            <div className="font-mono text-emerald-300 pt-1">
+                          <div className="rounded-md border border-zinc-800 bg-[#111115] p-3 text-xs space-y-1.5">
+                            <div className="text-zinc-400">{step.coachTip}</div>
+                            <div className="font-mono text-[11px] text-[#f5c518] pt-1">
                               Example: {step.exampleImprovement}
                             </div>
                           </div>
 
                           {step.quickChips && step.quickChips.length > 0 && (
                             <div className="space-y-1.5">
-                              <span className="text-[11px] text-slate-400 block">
-                                Pick a coaching focus (injects into your rewrite):
+                              <span className="text-[11px] text-zinc-500 block">
+                                Select a focus to inject into your rewrite:
                               </span>
                               <div className="flex flex-wrap gap-1.5">
                                 {step.quickChips.map((chip) => {
@@ -944,10 +1095,10 @@ function ArenaInner({
                                           },
                                         }))
                                       }
-                                      className={`rounded-lg border px-2.5 py-1 text-[11px] transition cursor-pointer ${
+                                      className={`rounded-md border px-2.5 py-1 text-[11px] transition cursor-pointer ${
                                         selected
-                                          ? "border-cyan-400 bg-cyan-400/20 text-cyan-200 font-medium"
-                                          : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
+                                          ? "border-[#f5c518] bg-[#f5c518]/15 text-[#f5c518] font-medium"
+                                          : "border-zinc-800 bg-[#111115] text-zinc-300 hover:border-zinc-700"
                                       }`}
                                     >
                                       {chip}
@@ -972,26 +1123,26 @@ function ArenaInner({
                             }
                             placeholder={
                               step.inputPlaceholder ||
-                              "Optional: add your real benchmark or angle..."
+                              "Optional: enter your real benchmark or angle..."
                             }
-                            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 placeholder:text-slate-600 focus:border-cyan-400 focus:outline-none"
+                            className="w-full rounded-md border border-zinc-800 bg-[#111115] px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-[#f5c518] focus:outline-none"
                           />
 
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-2 pt-1">
                             {coachStep < 3 ? (
                               <button
                                 type="button"
                                 onClick={() => setCoachStep((s) => s + 1)}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-400 hover:bg-cyan-300 px-3.5 py-1.5 text-xs font-semibold text-slate-950 cursor-pointer"
+                                className="inline-flex items-center gap-1.5 rounded-md bg-zinc-100 hover:bg-white px-3.5 py-1.5 text-xs font-semibold text-black cursor-pointer"
                               >
-                                Next Coaching Step
+                                Next Step
                                 <ArrowRight className="h-3.5 w-3.5" />
                               </button>
                             ) : (
                               <button
                                 type="button"
                                 onClick={() => setCoachUnlocked(true)}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 px-3.5 py-1.5 text-xs font-semibold text-slate-950 cursor-pointer"
+                                className="inline-flex items-center gap-1.5 rounded-md bg-[#f5c518] hover:bg-[#ffd43b] px-3.5 py-1.5 text-xs font-semibold text-black cursor-pointer"
                               >
                                 <Sparkles className="h-3.5 w-3.5" />
                                 Unlock Tailored Rewrite
@@ -1004,36 +1155,37 @@ function ArenaInner({
                 </div>
               )}
 
-              {/* Rewritten Output + Primary Conversion Event (rewrite_copied) */}
+              {/* Upgraded Output Pane (Editor Style) */}
               {rewriteVisible && (
-                <div className="rounded-xl border border-emerald-500/35 bg-emerald-950/10 p-4 space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-emerald-300">
-                        Upgraded Version (Ready to Paste)
+                <div className="rounded-lg border border-zinc-800 bg-[#09090b] overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 bg-[#141418] px-3.5 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-medium text-zinc-200">
+                        <FileCode2 className="h-3.5 w-3.5 text-[#f5c518]" />
+                        upgraded.md
                       </span>
-                      <div className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5 text-[10px]">
+                      <div className="inline-flex rounded border border-zinc-800 bg-[#09090b] p-0.5 text-[10px]">
                         <button
                           type="button"
                           onClick={() => setOutputView("upgraded")}
-                          className={`rounded-md px-2 py-0.5 cursor-pointer ${
+                          className={`rounded px-2 py-0.5 cursor-pointer ${
                             outputView === "upgraded"
-                              ? "bg-emerald-500/20 text-emerald-200 font-semibold"
-                              : "text-slate-400"
+                              ? "bg-zinc-800 text-zinc-100 font-medium"
+                              : "text-zinc-500 hover:text-zinc-300"
                           }`}
                         >
-                          Upgraded
+                          Output
                         </button>
                         <button
                           type="button"
                           onClick={() => setOutputView("diff")}
-                          className={`rounded-md px-2 py-0.5 cursor-pointer ${
+                          className={`rounded px-2 py-0.5 cursor-pointer ${
                             outputView === "diff"
-                              ? "bg-orange-500/20 text-orange-200 font-semibold"
-                              : "text-slate-400"
+                              ? "bg-zinc-800 text-[#f5c518] font-medium"
+                              : "text-zinc-500 hover:text-zinc-300"
                           }`}
                         >
-                          Before → After
+                          Before / After
                         </button>
                       </div>
                     </div>
@@ -1042,59 +1194,59 @@ function ArenaInner({
                       <button
                         type="button"
                         onClick={handleCopyShareCard}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 px-2.5 py-1.5 text-[11px] font-medium text-slate-200 cursor-pointer"
+                        className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-[#09090b] hover:bg-zinc-900 px-2.5 py-1 text-[11px] font-medium text-zinc-300 cursor-pointer"
                       >
-                        <Share2 className="h-3 w-3 text-cyan-300" />
-                        {sharedCard ? "Card Copied!" : "Copy Roast Card"}
+                        <Share2 className="h-3 w-3 text-zinc-400" />
+                        {sharedCard ? "Card Copied" : "Share Card"}
                       </button>
                       <button
                         type="button"
                         onClick={handleCopyRewrite}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-slate-950 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 rounded bg-[#f5c518] hover:bg-[#ffd43b] px-3 py-1 text-xs font-semibold text-black cursor-pointer"
                       >
                         {copied ? (
-                          <Check className="h-3.5 w-3.5" />
+                          <Check className="h-3.5 w-3.5 stroke-[2.5]" />
                         ) : (
                           <ClipboardCopy className="h-3.5 w-3.5" />
                         )}
-                        {copied ? "Copied! (Tracked)" : "Copy Upgraded Copy"}
+                        {copied ? "Copied · Tracked" : "Copy Upgraded Copy"}
                       </button>
                     </div>
                   </div>
 
-                  {outputView === "upgraded" ? (
-                    <pre className="whitespace-pre-wrap rounded-lg border border-slate-800 bg-[#07080d] p-3 font-mono text-xs text-slate-200 leading-relaxed">
-                      {displayedRewrite}
-                    </pre>
-                  ) : (
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      <div className="rounded-lg border border-rose-500/25 bg-[#07080d] p-3 space-y-1.5">
-                        <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-rose-300">
-                          <FileText className="h-3 w-3" />
-                          Original Draft
+                  <div className="p-3.5">
+                    {outputView === "upgraded" ? (
+                      <pre className="whitespace-pre-wrap font-mono text-xs text-zinc-200 leading-relaxed">
+                        {displayedRewrite}
+                      </pre>
+                    ) : (
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="rounded border border-zinc-800 bg-[#111115] p-3 space-y-1.5">
+                          <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500 block">
+                            Original Draft
+                          </span>
+                          <pre className="whitespace-pre-wrap font-mono text-[11px] text-zinc-400 leading-relaxed">
+                            {text.trim()}
+                          </pre>
                         </div>
-                        <pre className="whitespace-pre-wrap font-mono text-[11px] text-slate-400 leading-relaxed">
-                          {text.trim()}
-                        </pre>
-                      </div>
-                      <div className="rounded-lg border border-emerald-500/25 bg-[#07080d] p-3 space-y-1.5">
-                        <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-                          <Sparkles className="h-3 w-3" />
-                          Upgraded Copy
+                        <div className="rounded border border-[#f5c518]/30 bg-[#f5c518]/[0.04] p-3 space-y-1.5">
+                          <span className="font-mono text-[10px] uppercase tracking-wider text-[#f5c518] block">
+                            Upgraded Copy
+                          </span>
+                          <pre className="whitespace-pre-wrap font-mono text-[11px] text-zinc-100 leading-relaxed">
+                            {displayedRewrite}
+                          </pre>
                         </div>
-                        <pre className="whitespace-pre-wrap font-mono text-[11px] text-emerald-100 leading-relaxed">
-                          {displayedRewrite}
-                        </pre>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {/* Helpfulness Rating */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
-                    <span className="text-slate-400">
-                      Was this {strategyVariant} flow helpful?
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800 bg-[#111115] px-3.5 py-2.5 text-xs">
+                    <span className="text-zinc-400">
+                      Rate this <code className="font-mono text-zinc-200">{strategyVariant}</code> output:
                     </span>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
@@ -1102,8 +1254,8 @@ function ArenaInner({
                           onClick={() => handleRate(star)}
                           className={`p-1 rounded transition cursor-pointer ${
                             rating !== null && star <= rating
-                              ? "text-amber-400"
-                              : "text-slate-600 hover:text-amber-300"
+                              ? "text-[#f5c518]"
+                              : "text-zinc-600 hover:text-[#fde047]"
                           }`}
                         >
                           <Star className="h-4 w-4 fill-current" />
@@ -1333,9 +1485,9 @@ export function DevRoastArena() {
 
   if (!stateData || !visitorId) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-sm text-slate-300 gap-2">
-        <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
-        Loading Flagsmith Experiment Arena...
+      <div className="min-h-screen flex items-center justify-center text-xs font-mono text-zinc-400 gap-2">
+        <Loader2 className="h-4 w-4 animate-spin text-[#f5c518]" />
+        Initializing Flagsmith Experiment Arena...
       </div>
     );
   }

@@ -38,23 +38,25 @@ export function FlagsmithInspector({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-slate-800 bg-[#0a0d14]/98 backdrop-blur-xl shadow-2xl flex flex-col">
-      <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-        <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-cyan-400" />
+    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-zinc-800 bg-[#0b0b0e] shadow-2xl flex flex-col">
+      <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md border border-[#f5c518]/30 bg-[#f5c518]/10 text-[#f5c518]">
+            <Activity className="h-3.5 w-3.5" />
+          </div>
           <div>
-            <h2 className="text-sm font-semibold text-slate-100">
-              Flagsmith SDK Live Inspector
+            <h2 className="text-sm font-semibold text-zinc-100 tracking-tight">
+              Flagsmith SDK Inspector
             </h2>
-            <p className="text-[11px] text-slate-400">
-              Real-time flag evaluations, traits &amp; experimentation events
+            <p className="text-[11px] text-zinc-500">
+              Live evaluations, traits &amp; flushed events
             </p>
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 cursor-pointer"
+          className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100 cursor-pointer"
           aria-label="Close Flagsmith Inspector"
         >
           <X className="h-4 w-4" />
@@ -63,43 +65,47 @@ export function FlagsmithInspector({
 
       <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs">
         {/* Connection & Identity */}
-        <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-2.5">
+        <div className="rounded-lg border border-zinc-800 bg-[#111115] p-3.5 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400 font-medium">SDK Pipeline Mode</span>
+            <span className="text-zinc-400 font-medium">Pipeline Mode</span>
             <span
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold ${
+              className={`inline-flex items-center gap-1.5 rounded border px-2 py-0.5 font-mono text-[10px] font-medium ${
                 connection.mode === "live_flagsmith"
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                  : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                  ? "border-[#f5c518]/40 bg-[#f5c518]/10 text-[#f5c518]"
+                  : "border-zinc-700 bg-zinc-900 text-zinc-300"
               }`}
             >
-              <Radio className="h-3 w-3" />
+              <Radio className="h-2.5 w-2.5" />
               {connection.mode === "live_flagsmith"
                 ? "Live Flagsmith Edge"
                 : "Local Hydrated IState"}
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <div className="rounded-lg border border-slate-800 bg-[#07080d] p-2">
-              <span className="text-[10px] text-slate-500 block">Identity</span>
-              <code className="font-mono text-[11px] text-cyan-300 break-all">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-md border border-zinc-800/80 bg-[#09090b] p-2.5">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500 block">
+                Identity
+              </span>
+              <code className="font-mono text-[11px] text-zinc-100 break-all">
                 {visitorId}
               </code>
             </div>
-            <div className="rounded-lg border border-slate-800 bg-[#07080d] p-2">
-              <span className="text-[10px] text-slate-500 block">AI / Storage</span>
-              <code className="font-mono text-[11px] text-slate-200">
+            <div className="rounded-md border border-zinc-800/80 bg-[#09090b] p-2.5">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500 block">
+                Engine / Store
+              </span>
+              <code className="font-mono text-[11px] text-zinc-300">
                 {connection.activeLlmProvider} · {connection.storageBackend}
               </code>
             </div>
           </div>
 
-          <div className="rounded-lg border border-slate-800 bg-[#07080d] p-2.5">
-            <span className="text-[10px] text-slate-500 block mb-1">
-              Traits Passed to flagsmith.identify()
+          <div className="rounded-md border border-zinc-800/80 bg-[#09090b] p-2.5">
+            <span className="text-[10px] uppercase tracking-wider text-zinc-500 block mb-1">
+              identify() Traits
             </span>
-            <pre className="font-mono text-[10px] text-slate-300 overflow-x-auto">
+            <pre className="font-mono text-[11px] text-zinc-300 overflow-x-auto leading-relaxed">
               {JSON.stringify(traits, null, 2)}
             </pre>
           </div>
@@ -107,32 +113,32 @@ export function FlagsmithInspector({
 
         {/* Evaluated Flags */}
         <div className="space-y-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Active Evaluated Flags
+          <h3 className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+            Evaluated Flags
           </h3>
-          <div className="space-y-2">
+          <div className="divide-y divide-zinc-800 rounded-lg border border-zinc-800 bg-[#111115]">
             {flagsSnapshot.map((flag) => (
               <div
                 key={flag.key}
-                className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 flex items-center justify-between gap-2"
+                className="p-3 flex items-center justify-between gap-2"
               >
                 <div>
-                  <code className="font-mono text-[11px] font-semibold text-slate-100">
+                  <code className="font-mono text-[11px] font-medium text-zinc-100">
                     {flag.key}
                   </code>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] text-slate-400">
-                      enabled: {String(flag.enabled)}
+                    <span className="font-mono text-[10px] text-zinc-500">
+                      enabled={String(flag.enabled)}
                     </span>
                     {flag.inExperiment && (
-                      <span className="inline-flex items-center gap-1 rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] text-cyan-300">
+                      <span className="inline-flex items-center gap-1 rounded border border-[#f5c518]/30 bg-[#f5c518]/10 px-1.5 py-0.5 font-mono text-[10px] text-[#f5c518]">
                         <CheckCircle2 className="h-2.5 w-2.5" />
                         inExperiment
                       </span>
                     )}
                   </div>
                 </div>
-                <span className="rounded-lg border border-orange-500/35 bg-orange-500/15 px-2.5 py-1 font-mono text-[11px] font-semibold text-orange-300">
+                <span className="rounded border border-zinc-700 bg-[#09090b] px-2 py-1 font-mono text-[11px] text-[#f5c518]">
                   {flag.value}
                 </span>
               </div>
@@ -143,22 +149,22 @@ export function FlagsmithInspector({
         {/* Event Stream */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              SDK Event Stream ({logs.length})
+            <h3 className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              Event Stream ({logs.length})
             </h3>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={onFlushNow}
-                className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/15 hover:bg-emerald-500/25 px-2 py-1 text-[10px] font-semibold text-emerald-200 cursor-pointer"
+                className="inline-flex items-center gap-1 rounded border border-[#f5c518]/40 bg-[#f5c518]/15 hover:bg-[#f5c518]/25 px-2.5 py-1 text-[10px] font-semibold text-[#f5c518] cursor-pointer"
               >
                 <Send className="h-3 w-3" />
-                Flush Events
+                Flush Now
               </button>
               <button
                 type="button"
                 onClick={onClearLogs}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 px-2 py-1 text-[10px] text-slate-300 cursor-pointer"
+                className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 px-2 py-1 text-[10px] text-zinc-400 hover:text-zinc-200 cursor-pointer"
               >
                 <Trash2 className="h-3 w-3" />
                 Clear
@@ -167,29 +173,29 @@ export function FlagsmithInspector({
           </div>
 
           {logs.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-800 p-4 text-center text-[11px] text-slate-500">
-              Run a roast, copy a rewrite, or rate helpfulness to inspect live Flagsmith SDK events.
+            <div className="rounded-lg border border-dashed border-zinc-800 p-5 text-center text-[11px] text-zinc-500">
+              Run a roast, copy a rewrite, or rate helpfulness to inspect Flagsmith SDK payloads.
             </div>
           ) : (
             <div className="space-y-2">
               {logs.map((entry) => (
                 <div
                   key={entry.id}
-                  className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-1.5"
+                  className="rounded-lg border border-zinc-800 bg-[#111115] p-3 space-y-1.5"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">
+                    <span className="rounded border border-zinc-700 bg-[#09090b] px-1.5 py-0.5 font-mono text-[10px] uppercase text-[#f5c518]">
                       {entry.kind}
                     </span>
-                    <span className="font-mono text-[10px] text-slate-500">
+                    <span className="font-mono text-[10px] text-zinc-500 tabular-nums">
                       {new Date(entry.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
-                  <div className="font-mono text-[11px] font-semibold text-slate-100">
+                  <div className="font-mono text-[11px] font-semibold text-zinc-100">
                     {entry.name}
                   </div>
-                  <p className="text-[11px] text-slate-400">{entry.detail}</p>
-                  <pre className="rounded bg-[#07080d] p-2 font-mono text-[10px] text-slate-300 overflow-x-auto">
+                  <p className="text-[11px] text-zinc-400">{entry.detail}</p>
+                  <pre className="rounded border border-zinc-800/80 bg-[#09090b] p-2 font-mono text-[10px] text-zinc-300 overflow-x-auto">
                     {JSON.stringify(entry.payload, null, 2)}
                   </pre>
                 </div>
