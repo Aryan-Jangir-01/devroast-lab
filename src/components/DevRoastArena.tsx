@@ -225,12 +225,21 @@ function ArenaInner({
     );
 
     try {
-      const strategyExpId = flags.roast_strategy_experiment?.experiment?.id;
-      const unlockExpId = flags.rewrite_unlock_flow?.experiment?.id;
+      const expStrategy = flagsmith.eventsEnabled
+        ? flagsmith.getExperimentFlag("roast_strategy_experiment")
+        : flags.roast_strategy_experiment;
+      const expUnlock = flagsmith.eventsEnabled
+        ? flagsmith.getExperimentFlag("rewrite_unlock_flow")
+        : flags.rewrite_unlock_flow;
+
+      const strategyExpId = expStrategy?.experiment?.id;
+      const unlockExpId = expUnlock?.experiment?.id;
 
       const strategyExposurePayload = {
         identifier: visitorId,
-        value: strategyVariant,
+        variant: expStrategy?.variant ?? null,
+        value: expStrategy?.variant ?? strategyVariant,
+        featureValue: strategyVariant,
         metadata: {
           ...(strategyExpId ? { experiment_id: strategyExpId } : {}),
           inputType,
@@ -239,7 +248,9 @@ function ArenaInner({
       };
       const unlockExposurePayload = {
         identifier: visitorId,
-        value: unlockVariant,
+        variant: expUnlock?.variant ?? null,
+        value: expUnlock?.variant ?? unlockVariant,
+        featureValue: unlockVariant,
         metadata: {
           ...(unlockExpId ? { experiment_id: unlockExpId } : {}),
           inputType,
@@ -247,18 +258,28 @@ function ArenaInner({
         },
       };
 
-      if (flagsmith.eventsEnabled) {
-        flagsmith.trackExposureEvent(
-          "roast_strategy_experiment",
-          strategyExposurePayload
-        );
-        flagsmith.trackExposureEvent("rewrite_unlock_flow", unlockExposurePayload);
+      // Note: getExperimentFlag() automatically calls trackExposureEvent with `variant`
+      // when loaded from Flagsmith Server. For non-experiment flags or local fallback,
+      // log the resolved exposure state cleanly.
+      if (flagsmith.eventsEnabled && !expStrategy?.experiment?.inExperiment) {
+        flagsmith.trackExposureEvent("roast_strategy_experiment", {
+          identifier: visitorId,
+          value: expStrategy?.variant ?? strategyVariant,
+          metadata: { inputType, experienceLevel },
+        });
+      }
+      if (flagsmith.eventsEnabled && !expUnlock?.experiment?.inExperiment) {
+        flagsmith.trackExposureEvent("rewrite_unlock_flow", {
+          identifier: visitorId,
+          value: expUnlock?.variant ?? unlockVariant,
+          metadata: { inputType, strategyVariant },
+        });
       }
 
       onLogSdkEvent(
         "exposure",
         "$flag_exposure · roast_strategy_experiment",
-        `Bucketed visitor into "${strategyVariant}"`,
+        `Bucketed visitor into "${strategyVariant}" (variant=${String(expStrategy?.variant ?? "unset")})`,
         strategyExposurePayload
       );
       onLogSdkEvent(
@@ -477,6 +498,7 @@ function ArenaInner({
       key,
       enabled: Boolean(f?.enabled ?? true),
       value: String(f?.value ?? ""),
+      variant: f?.variant ?? null,
       inExperiment: Boolean(f?.experiment?.inExperiment),
     };
   });

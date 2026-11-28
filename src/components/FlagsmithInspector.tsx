@@ -17,6 +17,7 @@ interface FlagsmithInspectorProps {
     key: string;
     enabled: boolean;
     value: string;
+    variant?: string | null;
     inExperiment: boolean;
   }>;
   logs: FlagsmithEventLogEntry[];
@@ -126,14 +127,14 @@ export function FlagsmithInspector({
                   <code className="font-mono text-[11px] font-medium text-zinc-100">
                     {flag.key}
                   </code>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
                     <span className="font-mono text-[10px] text-zinc-500">
                       enabled={String(flag.enabled)}
                     </span>
                     {flag.inExperiment && (
                       <span className="inline-flex items-center gap-1 rounded border border-[#f5c518]/30 bg-[#f5c518]/10 px-1.5 py-0.5 font-mono text-[10px] text-[#f5c518]">
                         <CheckCircle2 className="h-2.5 w-2.5" />
-                        inExperiment
+                        inExperiment · variant={flag.variant ?? "null"}
                       </span>
                     )}
                   </div>

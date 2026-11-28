@@ -663,11 +663,13 @@ export async function provisionFlagsInFlagsmithCloud(
       multivariate_options: [
         {
           type: "unicode",
+          key: "brutal_checklist",
           string_value: "brutal_checklist",
           default_percentage_allocation: 50,
         },
         {
           type: "unicode",
+          key: "guided_coach",
           string_value: "guided_coach",
           default_percentage_allocation: 50,
         },
@@ -683,11 +685,13 @@ export async function provisionFlagsInFlagsmithCloud(
       multivariate_options: [
         {
           type: "unicode",
+          key: "instant_reveal",
           string_value: "instant_reveal",
           default_percentage_allocation: 50,
         },
         {
           type: "unicode",
+          key: "interactive_step",
           string_value: "interactive_step",
           default_percentage_allocation: 50,
         },
