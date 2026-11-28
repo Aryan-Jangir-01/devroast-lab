@@ -55,8 +55,11 @@ Create `.env.local` (see [.env.example](.env.example)):
 |---|---|---|
 | `NEXT_PUBLIC_FLAGSMITH_ENV_KEY` | Yes (Live Cloud) | Client-side Environment Key from Flagsmith (`Environment Settings → SDK Keys`) |
 | `FLAGSMITH_SDK_API_URL` | Optional | Defaults to `https://edge.api.flagsmith.com/api/v1/` |
-| `FLAGSMITH_API_KEY` | Optional | Flagsmith Organisation API Token for 1-click flag provisioning |
+| `FLAGSMITH_API_KEY` | Optional | Flagsmith Organisation API Token for 1-click flag provisioning & weight sync |
 | `FLAGSMITH_PROJECT_ID` | Optional | Numeric Flagsmith Project ID for Management API provisioning |
+| `FLAGSMITH_ENV_KEY` | Optional | Flagsmith Environment API key for live Flagsmith Cloud v2 weight publishing |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Optional | Shared Redis/KV persistence for `/scoreboard` across Vercel serverless instances |
+| `DEVROAST_ADMIN_KEY` | Optional | Passcode protecting Reset, Simulate, Weight Split, and Setup controls in production |
 | `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Optional | Upgrades roasts with LLM output (falls back cleanly to DevRoast Rubric Engine) |
 
 Run the app:

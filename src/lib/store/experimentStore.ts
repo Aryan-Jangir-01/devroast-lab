@@ -13,13 +13,86 @@ import type {
   VisitorTraits,
 } from "@/lib/types";
 
+import { isAdminProtected } from "@/lib/auth/adminGuard";
+
 const PRIMARY_DATA_DIR = path.join(process.cwd(), ".devroast");
 const TMP_DATA_DIR = path.join(os.tmpdir(), "devroast-lab");
+const REDIS_KEYS = {
+  "experiments.json": "devroast:experiments:v1",
+  "config.json": "devroast:config:v1",
+} as const;
 
 let activeDataDir = PRIMARY_DATA_DIR;
-let activeStorageBackend: "filesystem" | "tmp_fallback" | "memory" = "filesystem";
+let activeStorageBackend: "upstash_redis" | "filesystem" | "tmp_fallback" | "memory" =
+  "filesystem";
 let memoryStoreCache: ExperimentStoreData | null = null;
 let memoryConfigCache: Partial<RuntimeConfigInternal> | null = null;
+
+function getRedisCredentials(): { url: string; token: string } | null {
+  const url = (
+    process.env.UPSTASH_REDIS_REST_URL ||
+    process.env.KV_REST_API_URL ||
+    memoryConfigCache?.upstashRedisRestUrl ||
+    ""
+  ).trim();
+  const token = (
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    process.env.KV_REST_API_TOKEN ||
+    memoryConfigCache?.upstashRedisRestToken ||
+    ""
+  ).trim();
+  if (!url || !token) return null;
+  return { url: url.replace(/\/+$/, ""), token };
+}
+
+async function readFromRedis<T>(
+  fileName: "experiments.json" | "config.json"
+): Promise<T | null> {
+  const creds = getRedisCredentials();
+  if (!creds) return null;
+  try {
+    const res = await fetch(creds.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${creds.token}`,
+      },
+      body: JSON.stringify(["GET", REDIS_KEYS[fileName]]),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { result?: string | null };
+    if (!data.result) return null;
+    activeStorageBackend = "upstash_redis";
+    return JSON.parse(data.result) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function writeToRedis(
+  fileName: "experiments.json" | "config.json",
+  serialized: string
+): Promise<boolean> {
+  const creds = getRedisCredentials();
+  if (!creds) return false;
+  try {
+    const res = await fetch(creds.url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${creds.token}`,
+      },
+      body: JSON.stringify(["SET", REDIS_KEYS[fileName], serialized]),
+      cache: "no-store",
+    });
+    if (!res.ok) return false;
+    activeStorageBackend = "upstash_redis";
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 let writeQueue: Promise<unknown> = Promise.resolve();
 
@@ -47,10 +120,18 @@ function resolveJsonPath(dir: string, fileName: "experiments.json" | "config.jso
 async function readJsonFromDirs<T>(
   fileName: "experiments.json" | "config.json"
 ): Promise<T | null> {
+  const fromRedis = await readFromRedis<T>(fileName);
+  if (fromRedis) return fromRedis;
+
   for (const dir of [activeDataDir, PRIMARY_DATA_DIR, TMP_DATA_DIR]) {
     try {
       const target = resolveJsonPath(dir, fileName);
       const raw = await fs.readFile(/*turbopackIgnore: true*/ target, "utf8");
+      if (getRedisCredentials()) {
+        activeStorageBackend = "upstash_redis";
+      } else {
+        activeStorageBackend = dir === TMP_DATA_DIR ? "tmp_fallback" : "filesystem";
+      }
       return JSON.parse(raw) as T;
     } catch {
       // Try next candidate directory
@@ -64,6 +145,8 @@ async function writeJsonSafe(
   payload: unknown
 ): Promise<boolean> {
   const serialized = JSON.stringify(payload, null, 2);
+  const wroteRedis = await writeToRedis(fileName, serialized);
+
   const dirs =
     activeDataDir === TMP_DATA_DIR
       ? [TMP_DATA_DIR]
@@ -75,15 +158,19 @@ async function writeJsonSafe(
       const target = resolveJsonPath(dir, fileName);
       await fs.writeFile(/*turbopackIgnore: true*/ target, serialized, "utf8");
       activeDataDir = dir;
-      activeStorageBackend = dir === TMP_DATA_DIR ? "tmp_fallback" : "filesystem";
+      activeStorageBackend = wroteRedis
+        ? "upstash_redis"
+        : dir === TMP_DATA_DIR
+          ? "tmp_fallback"
+          : "filesystem";
       return true;
     } catch {
       // Try fallback directory (e.g. /tmp on read-only serverless environments)
     }
   }
 
-  activeStorageBackend = "memory";
-  return false;
+  activeStorageBackend = wroteRedis ? "upstash_redis" : "memory";
+  return wroteRedis;
 }
 
 function createEmptyExperienceCohorts(): Record<ExperienceLevel, CohortCounter> {
@@ -317,7 +404,14 @@ function normalizeExperimentStore(raw: ExperimentStoreData): ExperimentStoreData
 }
 
 export async function readExperimentStore(): Promise<ExperimentStoreData> {
-  if (memoryStoreCache && activeStorageBackend === "memory") {
+  if (getRedisCredentials()) {
+    const fromRedis = await readFromRedis<ExperimentStoreData>("experiments.json");
+    if (fromRedis) {
+      const normalized = normalizeExperimentStore(fromRedis);
+      memoryStoreCache = normalized;
+      return normalized;
+    }
+  } else if (memoryStoreCache && activeStorageBackend === "memory") {
     return normalizeExperimentStore(memoryStoreCache);
   }
   const disk = await readJsonFromDirs<ExperimentStoreData>("experiments.json");
@@ -377,6 +471,17 @@ export async function readRuntimeConfig(): Promise<RuntimeConfigInternal> {
     openaiApiKey: saved.openaiApiKey ?? process.env.OPENAI_API_KEY ?? "",
     anthropicApiKey:
       saved.anthropicApiKey ?? process.env.ANTHROPIC_API_KEY ?? "",
+    upstashRedisRestUrl:
+      saved.upstashRedisRestUrl ??
+      process.env.UPSTASH_REDIS_REST_URL ??
+      process.env.KV_REST_API_URL ??
+      "",
+    upstashRedisRestToken:
+      saved.upstashRedisRestToken ??
+      process.env.UPSTASH_REDIS_REST_TOKEN ??
+      process.env.KV_REST_API_TOKEN ??
+      "",
+    adminKey: process.env.DEVROAST_ADMIN_KEY ?? "",
   };
 }
 
@@ -429,7 +534,8 @@ export function getPublicConnectionStatus(
     hasOpenAiKey,
     hasAnthropicKey,
     activeLlmProvider,
-    storageBackend: activeStorageBackend,
+    storageBackend: getRedisCredentials() ? "upstash_redis" : activeStorageBackend,
+    adminProtected: isAdminProtected(),
   };
 }
 
@@ -630,6 +736,276 @@ export async function provisionFlagsInFlagsmithCloud(
   }
 
   return { created, skippedOrExisting, errors };
+}
+
+interface RemoteProjectFeatureLite {
+  id: number;
+  name: string;
+  multivariate_options?: Array<{
+    id: number;
+    string_value?: string | null;
+  }>;
+}
+
+interface RemoteFeatureStateLite {
+  id: number;
+  feature: number;
+  enabled: boolean;
+  feature_state_value?: unknown;
+  feature_segment?: { id: number; segment: number; priority: number } | null;
+  multivariate_feature_state_values?: Array<{
+    id?: number;
+    multivariate_feature_option: number;
+    percentage_allocation: number;
+  }>;
+}
+
+async function resolveFlagsmithEnvContext(
+  cfg: RuntimeConfigInternal,
+  featureName: string
+): Promise<{
+  base: string;
+  headers: Record<string, string>;
+  envKey: string;
+  envId: number;
+  useV2: boolean;
+  feature: RemoteProjectFeatureLite;
+  states: RemoteFeatureStateLite[];
+}> {
+  const envKey = (cfg.flagsmithEnvKey || cfg.publicFlagsmithEnvKey).trim();
+  if (!cfg.flagsmithApiKey.trim() || !cfg.flagsmithProjectId.trim() || !envKey) {
+    throw new Error("Flagsmith Management API key, Project ID, and Env Key are required.");
+  }
+
+  const base = cfg.flagsmithApiUrl.replace(/\/+$/, "");
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Api-Key ${cfg.flagsmithApiKey.trim()}`,
+  };
+
+  const [envRes, featRes] = await Promise.all([
+    fetch(`${base}/api/v1/environments/${encodeURIComponent(envKey)}/`, {
+      headers,
+      cache: "no-store",
+    }),
+    fetch(
+      `${base}/api/v1/projects/${encodeURIComponent(cfg.flagsmithProjectId.trim())}/features/`,
+      { headers, cache: "no-store" }
+    ),
+  ]);
+
+  if (!envRes.ok || !featRes.ok) {
+    throw new Error(`Flagsmith lookup failed (${envRes.status}/${featRes.status})`);
+  }
+
+  const envJson = (await envRes.json()) as {
+    id: number;
+    use_v2_feature_versioning?: boolean;
+  };
+  const featPayload = (await featRes.json()) as
+    | RemoteProjectFeatureLite[]
+    | { results: RemoteProjectFeatureLite[] };
+  const features = Array.isArray(featPayload)
+    ? featPayload
+    : featPayload.results ?? [];
+  const feature = features.find((f) => f.name === featureName);
+  if (!feature) {
+    throw new Error(`Feature "${featureName}" not found in Flagsmith project.`);
+  }
+
+  let states: RemoteFeatureStateLite[] = [];
+  if (envJson.use_v2_feature_versioning) {
+    const verRes = await fetch(
+      `${base}/api/v1/environments/${envJson.id}/features/${feature.id}/versions/`,
+      { headers, cache: "no-store" }
+    );
+    if (verRes.ok) {
+      const verJson = (await verRes.json()) as {
+        results?: Array<{ uuid: string; is_live?: boolean }>;
+      };
+      const liveVer =
+        verJson.results?.find((v) => v.is_live) ?? verJson.results?.[0];
+      if (liveVer?.uuid) {
+        const fsRes = await fetch(
+          `${base}/api/v1/environments/${envJson.id}/features/${feature.id}/versions/${liveVer.uuid}/featurestates/`,
+          { headers, cache: "no-store" }
+        );
+        if (fsRes.ok) {
+          states = (await fsRes.json()) as RemoteFeatureStateLite[];
+        }
+      }
+    }
+  } else {
+    const fsRes = await fetch(
+      `${base}/api/v1/environments/${encodeURIComponent(envKey)}/featurestates/`,
+      { headers, cache: "no-store" }
+    );
+    if (fsRes.ok) {
+      const all = (await fsRes.json()) as
+        | RemoteFeatureStateLite[]
+        | { results: RemoteFeatureStateLite[] };
+      const list = Array.isArray(all) ? all : all.results ?? [];
+      states = list.filter((s) => s.feature === feature.id);
+    }
+  }
+
+  return {
+    base,
+    headers,
+    envKey,
+    envId: envJson.id,
+    useV2: Boolean(envJson.use_v2_feature_versioning),
+    feature,
+    states,
+  };
+}
+
+async function applyFlagsmithStateUpdates(
+  ctx: Awaited<ReturnType<typeof resolveFlagsmithEnvContext>>,
+  updates: Array<{
+    id: number;
+    enabled: boolean;
+    feature_state_value?: unknown;
+    feature_segment?: number | null;
+    multivariate_feature_state_values?: Array<{
+      multivariate_feature_option: number;
+      percentage_allocation: number;
+    }>;
+  }>
+): Promise<{ synced: boolean; message: string }> {
+  if (updates.length === 0) {
+    return { synced: false, message: "No matching Flagsmith feature state rows found." };
+  }
+
+  if (ctx.useV2) {
+    const res = await fetch(
+      `${ctx.base}/api/v1/environments/${ctx.envId}/features/${ctx.feature.id}/versions/`,
+      {
+        method: "POST",
+        headers: ctx.headers,
+        body: JSON.stringify({
+          publish_immediately: true,
+          feature_states_to_update: updates.map((u) => ({
+            enabled: u.enabled,
+            feature_state_value: u.feature_state_value,
+            ...(u.feature_segment !== undefined
+              ? { feature_segment: u.feature_segment }
+              : {}),
+            ...(u.multivariate_feature_state_values
+              ? { multivariate_feature_state_values: u.multivariate_feature_state_values }
+              : {}),
+          })),
+        }),
+      }
+    );
+    if (!res.ok) {
+      const errTxt = await res.text().catch(() => "");
+      return {
+        synced: false,
+        message: `Flagsmith v2 publish HTTP ${res.status}: ${errTxt.slice(0, 140)}`,
+      };
+    }
+    return { synced: true, message: "Published live version to Flagsmith Cloud (v2)." };
+  }
+
+  for (const u of updates) {
+    const res = await fetch(
+      `${ctx.base}/api/v1/environments/${encodeURIComponent(ctx.envKey)}/featurestates/${u.id}/`,
+      {
+        method: "PATCH",
+        headers: ctx.headers,
+        body: JSON.stringify({
+          enabled: u.enabled,
+          ...(u.multivariate_feature_state_values
+            ? { multivariate_feature_state_values: u.multivariate_feature_state_values }
+            : {}),
+        }),
+      }
+    );
+    if (!res.ok) {
+      const errTxt = await res.text().catch(() => "");
+      return {
+        synced: false,
+        message: `Flagsmith PATCH HTTP ${res.status}: ${errTxt.slice(0, 140)}`,
+      };
+    }
+  }
+  return { synced: true, message: "Updated Flagsmith Cloud feature state." };
+}
+
+export async function syncRoastWeightsToFlagsmithCloud(
+  cfg: RuntimeConfigInternal,
+  brutalWeight: number
+): Promise<{ synced: boolean; message: string }> {
+  if (!cfg.flagsmithApiKey.trim() || !cfg.flagsmithProjectId.trim()) {
+    return { synced: false, message: "Local split updated (Flagsmith Management key not set)." };
+  }
+  try {
+    const ctx = await resolveFlagsmithEnvContext(cfg, "roast_strategy_experiment");
+    const brutalOpt = ctx.feature.multivariate_options?.find(
+      (o) => o.string_value === "brutal_checklist"
+    );
+    const coachOpt = ctx.feature.multivariate_options?.find(
+      (o) => o.string_value === "guided_coach"
+    );
+    if (!brutalOpt || !coachOpt) {
+      return { synced: false, message: "Multivariate options not found on Flagsmith Cloud." };
+    }
+
+    const mvPayload = [
+      { multivariate_feature_option: brutalOpt.id, percentage_allocation: brutalWeight },
+      { multivariate_feature_option: coachOpt.id, percentage_allocation: 100 - brutalWeight },
+    ];
+
+    const defaultState = ctx.states.find((s) => !s.feature_segment) ?? ctx.states[0];
+    if (!defaultState) {
+      return { synced: false, message: "No default feature state found in Flagsmith." };
+    }
+
+    return await applyFlagsmithStateUpdates(ctx, [
+      {
+        id: defaultState.id,
+        enabled: true,
+        feature_state_value: defaultState.feature_state_value,
+        feature_segment: null,
+        multivariate_feature_state_values: mvPayload,
+      },
+    ]);
+  } catch (err) {
+    return {
+      synced: false,
+      message: err instanceof Error ? err.message : "Flagsmith weight sync failed.",
+    };
+  }
+}
+
+export async function syncScoreboardEnabledToFlagsmithCloud(
+  cfg: RuntimeConfigInternal,
+  enabled: boolean
+): Promise<{ synced: boolean; message: string }> {
+  if (!cfg.flagsmithApiKey.trim() || !cfg.flagsmithProjectId.trim()) {
+    return { synced: false, message: "Local flag updated (Flagsmith Management key not set)." };
+  }
+  try {
+    const ctx = await resolveFlagsmithEnvContext(cfg, "live_scoreboard_enabled");
+    const defaultState = ctx.states.find((s) => !s.feature_segment) ?? ctx.states[0];
+    if (!defaultState) {
+      return { synced: false, message: "No default feature state found in Flagsmith." };
+    }
+    return await applyFlagsmithStateUpdates(ctx, [
+      {
+        id: defaultState.id,
+        enabled,
+        feature_state_value: defaultState.feature_state_value,
+        feature_segment: null,
+      },
+    ]);
+  } catch (err) {
+    return {
+      synced: false,
+      message: err instanceof Error ? err.message : "Flagsmith toggle sync failed.",
+    };
+  }
 }
 
 export { getStoreFile, getConfigFile };

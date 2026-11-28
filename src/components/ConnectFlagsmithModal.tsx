@@ -4,6 +4,12 @@ import { useState } from "react";
 import { CheckCircle2, KeyRound, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
 import type { ConnectionStatusPublic } from "@/lib/types";
 
+import {
+  buildAdminHeaders,
+  getStoredAdminKey,
+  setStoredAdminKey,
+} from "@/lib/auth/clientAdmin";
+
 interface ConnectFlagsmithModalProps {
   onClose: () => void;
   connection: ConnectionStatusPublic;
@@ -27,6 +33,7 @@ export function ConnectFlagsmithModal({
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
+  const [adminPasscode, setAdminPasscode] = useState(() => getStoredAdminKey());
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -35,6 +42,9 @@ export function ConnectFlagsmithModal({
     setBusy(true);
     setStatus(null);
     try {
+      if (adminPasscode.trim()) {
+        setStoredAdminKey(adminPasscode.trim());
+      }
       const body: Record<string, string> = {
         publicFlagsmithEnvKey,
         flagsmithProjectId,
@@ -46,7 +56,7 @@ export function ConnectFlagsmithModal({
 
       const res = await fetch("/api/config", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(body),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
@@ -64,9 +74,12 @@ export function ConnectFlagsmithModal({
     setBusy(true);
     setStatus(null);
     try {
+      if (adminPasscode.trim()) {
+        setStoredAdminKey(adminPasscode.trim());
+      }
       const res = await fetch("/api/config", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "provision_flags",
           flagsmithApiKey: flagsmithApiKey.trim() || undefined,
@@ -130,6 +143,20 @@ export function ConnectFlagsmithModal({
         </div>
 
         <form onSubmit={handleSave} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+          {connection.adminProtected && (
+            <label className="block space-y-1.5 text-xs rounded-lg border border-[#f5c518]/30 bg-[#f5c518]/5 p-3">
+              <span className="font-medium text-[#f5c518]">
+                Admin Passcode (`DEVROAST_ADMIN_KEY`) Required for Setup Changes
+              </span>
+              <input
+                type="password"
+                placeholder="Enter admin passcode"
+                value={adminPasscode}
+                onChange={(e) => setAdminPasscode(e.target.value)}
+                className="w-full rounded-md border border-zinc-800 bg-[#09090b] px-3 py-2 font-mono text-xs text-zinc-100 focus:border-[#f5c518] focus:outline-none"
+              />
+            </label>
+          )}
           <label className="block space-y-1.5 text-xs">
             <span className="font-medium text-zinc-300">
               Flagsmith Client Environment Key (

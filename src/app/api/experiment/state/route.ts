@@ -1,4 +1,5 @@
 import { NextResponse, connection } from "next/server";
+import { requireAdminAccess } from "@/lib/auth/adminGuard";
 import { computeBayesianScoreboard } from "@/lib/stats/bayesian";
 import {
   buildFlagsmithSdkState,
@@ -6,6 +7,8 @@ import {
   readExperimentStore,
   readRuntimeConfig,
   resetExperimentStore,
+  syncRoastWeightsToFlagsmithCloud,
+  syncScoreboardEnabledToFlagsmithCloud,
   withExperimentLock,
   writeExperimentStore,
 } from "@/lib/store/experimentStore";
@@ -42,6 +45,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const denied = requireAdminAccess(request);
+  if (denied) return denied;
+
   try {
     const body = (await request.json()) as {
       action?: "reset" | "update_weights" | "toggle_scoreboard";
@@ -61,36 +67,49 @@ export async function POST(request: Request) {
 
     if (body.action === "update_weights") {
       const w = Math.max(0, Math.min(100, Math.round(Number(body.brutalWeight ?? 50))));
-      const updated = await withExperimentLock(async () => {
-        const store = await readExperimentStore();
-        store.weights = {
-          brutal_checklist: w,
-          guided_coach: 100 - w,
-        };
-        await writeExperimentStore(store);
-        return store;
-      });
+      const [updated, cfg] = await Promise.all([
+        withExperimentLock(async () => {
+          const store = await readExperimentStore();
+          store.weights = {
+            brutal_checklist: w,
+            guided_coach: 100 - w,
+          };
+          await writeExperimentStore(store);
+          return store;
+        }),
+        readRuntimeConfig(),
+      ]);
+      const cloudSync = await syncRoastWeightsToFlagsmithCloud(cfg, w);
       return NextResponse.json({
         ok: true,
         store: updated,
         scoreboard: computeBayesianScoreboard(updated),
+        cloudSync,
       });
     }
 
     if (body.action === "toggle_scoreboard") {
-      const updated = await withExperimentLock(async () => {
-        const store = await readExperimentStore();
-        store.scoreboardEnabled =
-          typeof body.scoreboardEnabled === "boolean"
-            ? body.scoreboardEnabled
-            : !store.scoreboardEnabled;
-        await writeExperimentStore(store);
-        return store;
-      });
+      const [updated, cfg] = await Promise.all([
+        withExperimentLock(async () => {
+          const store = await readExperimentStore();
+          store.scoreboardEnabled =
+            typeof body.scoreboardEnabled === "boolean"
+              ? body.scoreboardEnabled
+              : !store.scoreboardEnabled;
+          await writeExperimentStore(store);
+          return store;
+        }),
+        readRuntimeConfig(),
+      ]);
+      const cloudSync = await syncScoreboardEnabledToFlagsmithCloud(
+        cfg,
+        updated.scoreboardEnabled
+      );
       return NextResponse.json({
         ok: true,
         store: updated,
         scoreboard: computeBayesianScoreboard(updated),
+        cloudSync,
       });
     }
 

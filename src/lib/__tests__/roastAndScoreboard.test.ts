@@ -2,6 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { POST as roastPost } from "@/app/api/roast/route";
 import { POST as eventsPost } from "@/app/api/events/route";
 import { POST as githubReadmePost } from "@/app/api/github-readme/route";
+import { POST as statePost } from "@/app/api/experiment/state/route";
+import { POST as configPost } from "@/app/api/config/route";
 import { computeBayesianScoreboard } from "@/lib/stats/bayesian";
 import {
   assignStrategyForVisitor,
@@ -131,5 +133,56 @@ describe("DevRoast Lab analyzer, Bayesian scoreboard & API routes", () => {
       })
     );
     expect(res.status).toBe(400);
+  });
+
+  it("enforces DEVROAST_ADMIN_KEY on reset, simulate, weight updates, and config changes", async () => {
+    const previous = process.env.DEVROAST_ADMIN_KEY;
+    process.env.DEVROAST_ADMIN_KEY = "secret-toggle-wars";
+    try {
+      const unauthReset = await statePost(
+        new Request("http://localhost/api/experiment/state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reset", mode: "zero" }),
+        })
+      );
+      expect(unauthReset.status).toBe(401);
+
+      const unauthSim = await eventsPost(
+        new Request("http://localhost/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "simulate", count: 10 }),
+        })
+      );
+      expect(unauthSim.status).toBe(401);
+
+      const unauthConfig = await configPost(
+        new Request("http://localhost/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ flagsmithProjectId: "999" }),
+        })
+      );
+      expect(unauthConfig.status).toBe(401);
+
+      const authReset = await statePost(
+        new Request("http://localhost/api/experiment/state", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-devroast-admin-key": "secret-toggle-wars",
+          },
+          body: JSON.stringify({ action: "reset", mode: "zero" }),
+        })
+      );
+      expect(authReset.status).toBe(200);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.DEVROAST_ADMIN_KEY;
+      } else {
+        process.env.DEVROAST_ADMIN_KEY = previous;
+      }
+    }
   });
 });

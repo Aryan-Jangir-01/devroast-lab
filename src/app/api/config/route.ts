@@ -1,4 +1,5 @@
 import { NextResponse, connection } from "next/server";
+import { requireAdminAccess } from "@/lib/auth/adminGuard";
 import {
   getPublicConnectionStatus,
   provisionFlagsInFlagsmithCloud,
@@ -13,6 +14,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = requireAdminAccess(request);
+  if (denied) return denied;
+
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const pick = (k: string): string | undefined =>

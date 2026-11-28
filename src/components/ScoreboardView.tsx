@@ -10,12 +10,19 @@ import {
   Eye,
   Flame,
   Layers,
+  Lock,
   Play,
   RotateCcw,
   ShieldAlert,
   ShieldCheck,
   Trophy,
+  Unlock,
 } from "lucide-react";
+import {
+  buildAdminHeaders,
+  getStoredAdminKey,
+  setStoredAdminKey,
+} from "@/lib/auth/clientAdmin";
 import type {
   BayesianScoreboard,
   ConnectionStatusPublic,
@@ -32,6 +39,9 @@ export function ScoreboardView() {
   const [data, setData] = useState<ScoreboardApiPayload | null>(null);
   const [busy, setBusy] = useState(false);
   const [segmentTab, setSegmentTab] = useState<"input" | "experience">("input");
+  const [adminKeyInput, setAdminKeyInput] = useState("");
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const [statusBanner, setStatusBanner] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/experiment/state", { cache: "no-store" });
@@ -43,10 +53,16 @@ export function ScoreboardView() {
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      const stored = getStoredAdminKey();
       const res = await fetch("/api/experiment/state", { cache: "no-store" });
       if (!res.ok) return;
       const json = (await res.json()) as ScoreboardApiPayload;
-      if (!cancelled) setData(json);
+      if (!cancelled) {
+        setData(json);
+        if (!json.connection.adminProtected || stored) {
+          setAdminUnlocked(true);
+        }
+      }
     };
     void load();
     return () => {
@@ -54,14 +70,44 @@ export function ScoreboardView() {
     };
   }, []);
 
-  const handleSimulate = async () => {
+  const handleUnlockAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminKeyInput.trim()) return;
     setBusy(true);
+    setStatusBanner(null);
     try {
-      await fetch("/api/events", {
+      const res = await fetch("/api/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: adminKeyInput.trim() }),
+      });
+      if (!res.ok) {
+        setStatusBanner("Invalid admin passcode.");
+        return;
+      }
+      setStoredAdminKey(adminKeyInput.trim());
+      setAdminUnlocked(true);
+      setAdminKeyInput("");
+      setStatusBanner("Admin controls unlocked for this session.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSimulate = async () => {
+    setBusy(true);
+    setStatusBanner(null);
+    try {
+      const res = await fetch("/api/events", {
+        method: "POST",
+        headers: buildAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ action: "simulate", count: 30 }),
       });
+      if (res.status === 401) {
+        setAdminUnlocked(false);
+        setStatusBanner("Admin unlock required to simulate sessions.");
+        return;
+      }
       await refresh();
     } finally {
       setBusy(false);
@@ -70,12 +116,24 @@ export function ScoreboardView() {
 
   const handleWeightShift = async (brutalWeight: number) => {
     setBusy(true);
+    setStatusBanner(null);
     try {
-      await fetch("/api/experiment/state", {
+      const res = await fetch("/api/experiment/state", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ action: "update_weights", brutalWeight }),
       });
+      if (res.status === 401) {
+        setAdminUnlocked(false);
+        setStatusBanner("Admin unlock required to modify traffic allocation.");
+        return;
+      }
+      const json = (await res.json()) as {
+        cloudSync?: { synced: boolean; message: string };
+      };
+      if (json.cloudSync?.message) {
+        setStatusBanner(json.cloudSync.message);
+      }
       await refresh();
     } finally {
       setBusy(false);
@@ -85,15 +143,27 @@ export function ScoreboardView() {
   const handleToggleScoreboardFlag = async () => {
     if (!data) return;
     setBusy(true);
+    setStatusBanner(null);
     try {
-      await fetch("/api/experiment/state", {
+      const res = await fetch("/api/experiment/state", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           action: "toggle_scoreboard",
           scoreboardEnabled: !data.store.scoreboardEnabled,
         }),
       });
+      if (res.status === 401) {
+        setAdminUnlocked(false);
+        setStatusBanner("Admin unlock required to toggle Flagsmith flags.");
+        return;
+      }
+      const json = (await res.json()) as {
+        cloudSync?: { synced: boolean; message: string };
+      };
+      if (json.cloudSync?.message) {
+        setStatusBanner(json.cloudSync.message);
+      }
       await refresh();
     } finally {
       setBusy(false);
@@ -102,13 +172,20 @@ export function ScoreboardView() {
 
   const handleResetZero = async () => {
     setBusy(true);
+    setStatusBanner(null);
     try {
-      await fetch("/api/experiment/state", {
+      const res = await fetch("/api/experiment/state", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAdminHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({ action: "reset", mode: "zero" }),
       });
+      if (res.status === 401) {
+        setAdminUnlocked(false);
+        setStatusBanner("Admin unlock required to reset counts.");
+        return;
+      }
       await refresh();
+      setStatusBanner("Experiment counters reset to zero.");
     } finally {
       setBusy(false);
     }
@@ -180,6 +257,13 @@ export function ScoreboardView() {
   const { scoreboard, store, connection } = data;
   const activeSegments =
     segmentTab === "input" ? scoreboard.cohorts : scoreboard.experienceCohorts;
+  const controlsUnlocked = !connection.adminProtected || adminUnlocked;
+  const storageLabel =
+    connection.storageBackend === "upstash_redis"
+      ? "Redis Shared"
+      : connection.storageBackend === "filesystem"
+        ? "Local Disk"
+        : "Ephemeral Tmp";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -211,6 +295,9 @@ export function ScoreboardView() {
                     ? "Live Flagsmith Edge"
                     : "Local Mode"}
                 </span>
+                <span className="rounded border border-zinc-800 bg-[#111115] px-2 py-0.5 font-mono text-[10px] text-zinc-400">
+                  {storageLabel}
+                </span>
               </div>
             </div>
           </div>
@@ -232,29 +319,45 @@ export function ScoreboardView() {
               <Download className="h-3.5 w-3.5 text-zinc-400" />
               JSON
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={handleSimulate}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#f5c518] hover:bg-[#ffd43b] px-3 py-1.5 text-xs font-semibold text-black cursor-pointer disabled:opacity-50"
-            >
-              <Play className="h-3.5 w-3.5" />
-              Simulate 30 Sessions
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={handleResetZero}
-              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#111115] hover:border-red-500/40 hover:text-red-300 px-2.5 py-1.5 text-xs text-zinc-400 cursor-pointer disabled:opacity-50"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset
-            </button>
+            {controlsUnlocked && (
+              <>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={handleSimulate}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-[#f5c518] hover:bg-[#ffd43b] px-3 py-1.5 text-xs font-semibold text-black cursor-pointer disabled:opacity-50"
+                >
+                  <Play className="h-3.5 w-3.5" />
+                  Simulate 30 Sessions
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={handleResetZero}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#111115] hover:border-red-500/40 hover:text-red-300 px-2.5 py-1.5 text-xs text-zinc-400 cursor-pointer disabled:opacity-50"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 sm:px-6 py-6 space-y-6">
+        {statusBanner && (
+          <div className="rounded-lg border border-[#f5c518]/35 bg-[#f5c518]/10 px-4 py-2.5 text-xs text-[#fde047] flex items-center justify-between gap-2">
+            <span>{statusBanner}</span>
+            <button
+              type="button"
+              onClick={() => setStatusBanner(null)}
+              className="text-[11px] font-mono underline cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         {!store.scoreboardEnabled && (
           <div className="rounded-lg border border-[#f5c518]/40 bg-[#f5c518]/10 px-4 py-3 text-xs text-[#fde047] flex items-center justify-between gap-3">
             <span>
@@ -593,55 +696,94 @@ export function ScoreboardView() {
         {/* Traffic Split + Cohort Segmentation */}
         <div className="grid lg:grid-cols-12 gap-6">
           <div className="lg:col-span-5 rounded-xl border border-zinc-800 bg-[#111115] p-5 space-y-4">
-            <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
-              <Flame className="h-4 w-4 text-[#f5c518]" />
-              Traffic Split &amp; Flag Controls
-            </h2>
-            <p className="text-xs text-zinc-400">
-              Shift traffic allocation dynamically or promote the winning variant to 100%.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { label: "50 / 50 Split", val: 50 },
-                { label: "80 / 20 Brutal", val: 80 },
-                { label: "20 / 80 Coach", val: 20 },
-                { label: "100% Winner (Brutal)", val: 100 },
-                { label: "100% Winner (Coach)", val: 0 },
-              ].map((preset) => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => handleWeightShift(preset.val)}
-                  className={`rounded-md border px-3 py-1.5 text-xs font-medium cursor-pointer ${
-                    store.weights.brutal_checklist === preset.val
-                      ? "border-[#f5c518] bg-[#f5c518] text-black font-semibold"
-                      : "border-zinc-800 bg-[#09090b] text-zinc-300 hover:border-zinc-700"
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+                <Flame className="h-4 w-4 text-[#f5c518]" />
+                Traffic Split &amp; Flag Controls
+              </h2>
+              {connection.adminProtected && (
+                <span className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-[#09090b] px-2 py-0.5 font-mono text-[10px] text-zinc-400">
+                  {controlsUnlocked ? (
+                    <Unlock className="h-2.5 w-2.5 text-[#f5c518]" />
+                  ) : (
+                    <Lock className="h-2.5 w-2.5 text-zinc-500" />
+                  )}
+                  {controlsUnlocked ? "Unlocked" : "Admin Locked"}
+                </span>
+              )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-zinc-800 pt-3 text-xs">
-              <span className="text-zinc-400">
-                Flag 3: <code className="font-mono text-zinc-200">live_scoreboard_enabled</code>
-              </span>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={handleToggleScoreboardFlag}
-                className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium cursor-pointer ${
-                  store.scoreboardEnabled
-                    ? "border-[#f5c518]/40 bg-[#f5c518]/10 text-[#f5c518]"
-                    : "border-zinc-800 bg-[#09090b] text-zinc-500"
-                }`}
-              >
-                <Eye className="h-3 w-3" />
-                {store.scoreboardEnabled ? "Enabled" : "Hidden"}
-              </button>
-            </div>
+            {!controlsUnlocked ? (
+              <form onSubmit={handleUnlockAdmin} className="space-y-3">
+                <p className="text-xs text-zinc-400">
+                  Admin passcode is active on this deployment so public visitors cannot reset counters or shift Flagsmith traffic splits.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={adminKeyInput}
+                    onChange={(e) => setAdminKeyInput(e.target.value)}
+                    placeholder="Enter DEVROAST_ADMIN_KEY"
+                    className="flex-1 rounded-md border border-zinc-800 bg-[#09090b] px-3 py-1.5 font-mono text-xs text-zinc-100 focus:border-[#f5c518] focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="rounded-md bg-[#f5c518] hover:bg-[#ffd43b] px-3 py-1.5 text-xs font-semibold text-black cursor-pointer"
+                  >
+                    Unlock
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <p className="text-xs text-zinc-400">
+                  Shift traffic allocation dynamically or promote the winning variant to 100% (syncs to Flagsmith Cloud when Management Key is set).
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: "50 / 50 Split", val: 50 },
+                    { label: "80 / 20 Brutal", val: 80 },
+                    { label: "20 / 80 Coach", val: 20 },
+                    { label: "100% Winner (Brutal)", val: 100 },
+                    { label: "100% Winner (Coach)", val: 0 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => handleWeightShift(preset.val)}
+                      className={`rounded-md border px-3 py-1.5 text-xs font-medium cursor-pointer ${
+                        store.weights.brutal_checklist === preset.val
+                          ? "border-[#f5c518] bg-[#f5c518] text-black font-semibold"
+                          : "border-zinc-800 bg-[#09090b] text-zinc-300 hover:border-zinc-700"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-zinc-800 pt-3 text-xs">
+                  <span className="text-zinc-400">
+                    Flag 3: <code className="font-mono text-zinc-200">live_scoreboard_enabled</code>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={handleToggleScoreboardFlag}
+                    className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium cursor-pointer ${
+                      store.scoreboardEnabled
+                        ? "border-[#f5c518]/40 bg-[#f5c518]/10 text-[#f5c518]"
+                        : "border-zinc-800 bg-[#09090b] text-zinc-500"
+                    }`}
+                  >
+                    <Eye className="h-3 w-3" />
+                    {store.scoreboardEnabled ? "Enabled" : "Hidden"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="lg:col-span-7 rounded-xl border border-zinc-800 bg-[#111115] p-5 space-y-3">

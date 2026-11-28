@@ -168,6 +168,9 @@ export interface RuntimeConfigInternal {
   geminiApiKey: string;
   openaiApiKey: string;
   anthropicApiKey: string;
+  upstashRedisRestUrl: string;
+  upstashRedisRestToken: string;
+  adminKey: string;
 }
 
 export interface ConnectionStatusPublic {
@@ -180,7 +183,8 @@ export interface ConnectionStatusPublic {
   hasOpenAiKey: boolean;
   hasAnthropicKey: boolean;
   activeLlmProvider: "gemini" | "openai" | "anthropic" | "rubric";
-  storageBackend: "filesystem" | "tmp_fallback" | "memory";
+  storageBackend: "upstash_redis" | "filesystem" | "tmp_fallback" | "memory";
+  adminProtected: boolean;
 }
 
 export interface FlagsmithEventLogEntry {

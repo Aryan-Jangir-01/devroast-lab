@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { ConnectFlagsmithModal } from "@/components/ConnectFlagsmithModal";
 import { FlagsmithInspector } from "@/components/FlagsmithInspector";
+import { buildAdminHeaders } from "@/lib/auth/clientAdmin";
 import type {
   BayesianScoreboard,
   ConnectionStatusPublic,
@@ -1474,11 +1475,12 @@ export function DevRoastArena() {
   };
 
   const handleReset = async (mode: "baseline" | "zero") => {
-    await fetch("/api/experiment/state", {
+    const res = await fetch("/api/experiment/state", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildAdminHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ action: "reset", mode }),
     });
+    if (!res.ok) return;
     await refreshState();
     setModalOpen(false);
   };

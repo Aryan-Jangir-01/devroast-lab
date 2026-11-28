@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminAccess } from "@/lib/auth/adminGuard";
 import { computeBayesianScoreboard } from "@/lib/stats/bayesian";
 import {
   readExperimentStore,
@@ -25,6 +26,11 @@ export async function POST(request: Request) {
       timeToCopyMs?: number;
       count?: number;
     };
+
+    if (body.action === "simulate") {
+      const denied = requireAdminAccess(request);
+      if (denied) return denied;
+    }
 
     const updatedStore = await withExperimentLock(async () => {
       const store = await readExperimentStore();
